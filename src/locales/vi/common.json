@@ -1,0 +1,119 @@
+{
+  "nav": {
+    "home": "Trang chủ",
+    "chat": "Chat",
+    "quiz": "Bài kiểm tra",
+    "documents": "Tài liệu",
+    "dashboard": "Bảng điều khiển",
+    "profile": "Hồ sơ",
+    "logout": "Đăng xuất"
+  },
+  "home": {
+    "title": "Học với AI",
+    "subtitle": "Học tập cùng trí tuệ nhân tạo",
+    "description": "Một nền tảng học tập hiện đại được hỗ trợ bởi AI. Chat với các gia sư AI, làm bài kiểm tra và tiếp cận các tài liệu học tập.",
+    "getStarted": "Bắt đầu",
+    "features": {
+      "chat": {
+        "title": "Gia sư AI",
+        "description": "Học hỏi bằng cách chat với các gia sư AI về bất kỳ chủ đề nào"
+      },
+      "quiz": {
+        "title": "Bài kiểm tra thông minh",
+        "description": "Kiểm tra kiến thức của bạn với các bài kiểm tra thích ứng"
+      },
+      "documents": {
+        "title": "Tài liệu học tập",
+        "description": "Truy cập thư viện tài liệu và tài nguyên học tập của chúng tôi"
+      },
+      "progress": {
+        "title": "Theo dõi tiến độ",
+        "description": "Theo dõi tiến độ và thành tích học tập của bạn"
+      }
+    }
+  },
+  "auth": {
+    "register": "Đăng ký",
+    "login": "Đăng nhập",
+    "email": "Email",
+    "password": "Mật khẩu",
+    "name": "Họ và tên",
+    "confirmPassword": "Xác nhận mật khẩu",
+    "alreadyHaveAccount": "Đã có tài khoản?",
+    "noAccount": "Chưa có tài khoản?",
+    "submit": "Gửi",
+    "success": "Thành công",
+    "error": "Lỗi",
+    "loading": "Đang tải...",
+    "welcome": "Chào mừng trở lại!",
+    "createAccount": "Tạo tài khoản"
+  },
+  "chat": {
+    "title": "Chat với AI",
+    "subtitle": "Đặt câu hỏi và học từ các gia sư AI",
+    "selectTopic": "Chọn chủ đề",
+    "enterMessage": "Nhập tin nhắn của bạn tại đây...",
+    "send": "Gửi",
+    "newChat": "Cuộc trò chuyện mới",
+    "chatHistory": "Lịch sử chat",
+    "noChats": "Chưa có cuộc trò chuyện nào. Hãy bắt đầu một cuộc hội thoại mới!"
+  },
+  "quiz": {
+    "title": "Bài kiểm tra",
+    "subtitle": "Kiểm tra kiến thức của bạn",
+    "selectDifficulty": "Chọn mức độ khó",
+    "easy": "Dễ",
+    "medium": "Trung bình",
+    "hard": "Khó",
+    "startQuiz": "Bắt đầu bài kiểm tra",
+    "question": "Câu hỏi",
+    "of": "của",
+    "submit": "Gửi câu trả lời",
+    "next": "Câu hỏi tiếp theo",
+    "finish": "Hoàn thành bài kiểm tra",
+    "score": "Điểm của bạn",
+    "correct": "Chính xác",
+    "incorrect": "Không chính xác",
+    "noQuizzes": "Chưa có bài kiểm tra nào"
+  },
+  "documents": {
+    "title": "Tài liệu học tập",
+    "subtitle": "Khám phá thư viện tài liệu học tập của chúng tôi",
+    "search": "Tìm kiếm tài liệu...",
+    "filter": "Lọc theo chủ đề",
+    "noDocuments": "Không tìm thấy tài liệu nào",
+    "views": "Lượt xem",
+    "likes": "Thích"
+  },
+  "dashboard": {
+    "title": "Bảng điều khiển của bạn",
+    "greeting": "Chào mừng trở lại",
+    "stats": {
+      "quizzesTaken": "Bài kiểm tra đã làm",
+      "chatSessions": "Phiên chat",
+      "documentsViewed": "Tài liệu đã xem",
+      "learningStreak": "Chuỗi học tập"
+    },
+    "recentActivity": "Hoạt động gần đây",
+    "learningTopics": "Chủ đề học tập"
+  },
+  "roadmap": {
+    "title": "Lộ trình cá nhân hóa",
+    "subtitle": "Các bước học tiếp theo cho mọi môn",
+    "start": "Bắt đầu ngay",
+    "accepted": "Nhận gợi ý",
+    "completed": "Đánh dấu hoàn thành",
+    "skipped": "Bỏ qua"
+  },
+  "common": {
+    "cancel": "Hủy",
+    "delete": "Xóa",
+    "edit": "Chỉnh sửa",
+    "save": "Lưu",
+    "close": "Đóng",
+    "loading": "Đang tải...",
+    "error": "Đã xảy ra lỗi",
+    "success": "Thành công",
+    "tryAgain": "Thử lại"
+  }
+}

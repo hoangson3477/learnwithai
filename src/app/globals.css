@@ -3,24 +3,61 @@
 :root {
   --background: #ffffff;
   --foreground: #171717;
+  --primary: #22c55e;
+  --primary-dark: #16a34a;
+  --primary-light: #86efac;
+  --accent: #10b981;
 }
 
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
+  --color-primary: var(--primary);
   --font-sans: var(--font-geist-sans);
   --font-mono: var(--font-geist-mono);
 }
 
 @media (prefers-color-scheme: dark) {
   :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
+    --background: #ffffff;
+    --foreground: #171717;
   }
+}
+
+* {
+  @apply transition-colors duration-200;
 }
 
 body {
   background: var(--background);
   color: var(--foreground);
   font-family: Arial, Helvetica, sans-serif;
+}
+
+/* Duolingo Green Theme */
+h1, h2, h3 {
+  @apply text-gray-900;
+}
+
+a {
+  @apply text-green-600 hover:text-green-700;
+}
+
+button {
+  @apply focus:outline-none focus:ring-2 focus:ring-green-400;
+}
+
+/* Smooth transitions */
+@layer components {
+  .btn-primary {
+    @apply bg-green-500 text-white font-medium py-2 px-4 rounded-lg hover:bg-green-600 transition-colors;
+  }
+  
+  .btn-secondary {
+    @apply bg-gray-200 text-gray-800 font-medium py-2 px-4 rounded-lg hover:bg-gray-300 transition-colors;
+  }
+  
+  .card {
+    @apply bg-white rounded-lg shadow-md p-4 hover:shadow-lg transition-shadow;
+  }
 }

@@ -1,0 +1,119 @@
+{
+  "nav": {
+    "home": "Home",
+    "chat": "Chat",
+    "quiz": "Quiz",
+    "documents": "Documents",
+    "dashboard": "Dashboard",
+    "profile": "Profile",
+    "logout": "Logout"
+  },
+  "home": {
+    "title": "Learn with AI",
+    "subtitle": "Learn together with artificial intelligence",
+    "description": "A modern learning platform powered by AI. Chat with tutors, take quizzes, and access learning materials.",
+    "getStarted": "Get started",
+    "features": {
+      "chat": {
+        "title": "AI Chat tutor",
+        "description": "Learn by chatting with AI tutors on any topic"
+      },
+      "quiz": {
+        "title": "Smart quizzes",
+        "description": "Test your knowledge with adaptive quizzes"
+      },
+      "documents": {
+        "title": "Learning materials",
+        "description": "Access a library of learning documents and resources"
+      },
+      "progress": {
+        "title": "Progress tracking",
+        "description": "Track your learning progress and achievements"
+      }
+    }
+  },
+  "auth": {
+    "register": "Sign up",
+    "login": "Sign in",
+    "email": "Email",
+    "password": "Password",
+    "name": "Full name",
+    "confirmPassword": "Confirm password",
+    "alreadyHaveAccount": "Already have an account?",
+    "noAccount": "Don't have an account?",
+    "submit": "Submit",
+    "success": "Success",
+    "error": "Error",
+    "loading": "Loading...",
+    "welcome": "Welcome back!",
+    "createAccount": "Create an account"
+  },
+  "chat": {
+    "title": "Chat with AI",
+    "subtitle": "Ask questions and learn from AI tutors",
+    "selectTopic": "Select a topic",
+    "enterMessage": "Enter your message here...",
+    "send": "Send",
+    "newChat": "New chat",
+    "chatHistory": "Chat history",
+    "noChats": "No chats yet. Start a new conversation!"
+  },
+  "quiz": {
+    "title": "Quizzes",
+    "subtitle": "Test your knowledge",
+    "selectDifficulty": "Select difficulty",
+    "easy": "Easy",
+    "medium": "Medium",
+    "hard": "Hard",
+    "startQuiz": "Start quiz",
+    "question": "Question",
+    "of": "of",
+    "submit": "Submit answer",
+    "next": "Next question",
+    "finish": "Finish quiz",
+    "score": "Your score",
+    "correct": "Correct",
+    "incorrect": "Incorrect",
+    "noQuizzes": "No quizzes available yet"
+  },
+  "documents": {
+    "title": "Learning materials",
+    "subtitle": "Explore our library of study materials",
+    "search": "Search materials...",
+    "filter": "Filter by topic",
+    "noDocuments": "No documents found",
+    "views": "Views",
+    "likes": "Likes"
+  },
+  "dashboard": {
+    "title": "Your dashboard",
+    "greeting": "Welcome back",
+    "stats": {
+      "quizzesTaken": "Quizzes taken",
+      "chatSessions": "Chat sessions",
+      "documentsViewed": "Documents viewed",
+      "learningStreak": "Learning streak"
+    },
+    "recentActivity": "Recent activity",
+    "learningTopics": "Learning topics"
+  },
+  "roadmap": {
+    "title": "Personalized roadmap",
+    "subtitle": "Your next actions across all subjects",
+    "start": "Start now",
+    "accepted": "Accept suggestion",
+    "completed": "Mark complete",
+    "skipped": "Skip"
+  },
+  "common": {
+    "cancel": "Cancel",
+    "delete": "Delete",
+    "edit": "Edit",
+    "save": "Save",
+    "close": "Close",
+    "loading": "Loading...",
+    "error": "An error occurred",
+    "success": "Success",
+    "tryAgain": "Try again"
+  }
+}
