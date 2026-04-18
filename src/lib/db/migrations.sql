@@ -1180,3 +1180,115 @@ BEGIN
     ON CONFLICT DO NOTHING;
   END IF;
 END $$;
+
+-- =====================================================
+-- RAG (Retrieval-Augmented Generation) Schema
+-- =====================================================
+
+-- Enable pgvector extension for similarity search
+CREATE EXTENSION IF NOT EXISTS vector;
+
+-- Document chunks table for RAG
+CREATE TABLE IF NOT EXISTS document_chunks (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  document_id UUID NOT NULL REFERENCES documents(id) ON DELETE CASCADE,
+  chunk_text TEXT NOT NULL,
+  embedding VECTOR(768) NOT NULL,  -- Gemini embedding-004 produces 768 dimensions
+  chunk_index INT NOT NULL,        -- Order of chunk within document
+  metadata JSONB DEFAULT '{}',     -- Page number, section, etc.
+  created_at TIMESTAMP DEFAULT NOW()
+);
+
+-- Index for fast similarity search
+CREATE INDEX IF NOT EXISTS idx_document_chunks_embedding ON document_chunks 
+  USING ivfflat (embedding vector_cosine_ops) WITH (lists = 100);
+
+CREATE INDEX IF NOT EXISTS idx_document_chunks_document_id ON document_chunks(document_id);
+
+-- Source files table (for uploaded PDFs, Word, Images)
+CREATE TABLE IF NOT EXISTS document_source_files (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  document_id UUID NOT NULL REFERENCES documents(id) ON DELETE CASCADE,
+  file_name TEXT NOT NULL,
+  file_type TEXT NOT NULL CHECK (file_type IN ('pdf', 'docx', 'doc', 'jpg', 'jpeg', 'png')),
+  storage_path TEXT NOT NULL,      -- Supabase Storage path
+  file_size INT,                   -- Size in bytes
+  extracted_text TEXT,             -- Full extracted text (for re-processing)
+  processing_status TEXT NOT NULL DEFAULT 'pending' CHECK (processing_status IN ('pending', 'processing', 'completed', 'failed')),
+  error_message TEXT,              -- Error if processing failed
+  created_at TIMESTAMP DEFAULT NOW(),
+  updated_at TIMESTAMP DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS idx_document_source_files_document_id ON document_source_files(document_id);
+
+-- RAG query logs (for analytics)
+CREATE TABLE IF NOT EXISTS rag_query_logs (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  query_text TEXT NOT NULL,
+  top_chunks UUID[],               -- IDs of chunks retrieved
+  similarity_scores FLOAT[],       -- Scores for retrieved chunks
+  latency_ms INT,                  -- Query latency
+  created_at TIMESTAMP DEFAULT NOW()
+);
+
+-- Permissions for RAG tables
+ALTER TABLE document_chunks ENABLE ROW LEVEL SECURITY;
+ALTER TABLE document_source_files ENABLE ROW LEVEL SECURITY;
+ALTER TABLE rag_query_logs ENABLE ROW LEVEL SECURITY;
+
+-- Only admin can manage chunks
+CREATE POLICY "Admin can manage document chunks" ON document_chunks
+  FOR ALL USING (
+    EXISTS (SELECT 1 FROM users u WHERE u.id = auth.uid() AND u.role = 'web_admin')
+  );
+
+-- Everyone can view source files (for document info)
+CREATE POLICY "Anyone can view document source files" ON document_source_files
+  FOR SELECT USING (true);
+
+CREATE POLICY "Admin can manage document source files" ON document_source_files
+  FOR ALL USING (
+    EXISTS (SELECT 1 FROM users u WHERE u.id = auth.uid() AND u.role = 'web_admin')
+  );
+
+-- Only admin can view query logs
+CREATE POLICY "Only admin can view query logs" ON rag_query_logs
+  FOR ALL USING (
+    EXISTS (SELECT 1 FROM users u WHERE u.id = auth.uid() AND u.role = 'web_admin')
+  );
+
+-- Function for similarity search
+CREATE OR REPLACE FUNCTION match_document_chunks(
+  query_embedding VECTOR(768),
+  match_threshold FLOAT,
+  match_count INT,
+  filter_document_ids UUID[] DEFAULT NULL
+)
+RETURNS TABLE(
+  id UUID,
+  document_id UUID,
+  chunk_text TEXT,
+  chunk_index INT,
+  metadata JSONB,
+  similarity FLOAT
+)
+LANGUAGE SQL STABLE
+AS $$
+  SELECT
+    dc.id,
+    dc.document_id,
+    dc.chunk_text,
+    dc.chunk_index,
+    dc.metadata,
+    1 - (dc.embedding <=> query_embedding) AS similarity
+  FROM document_chunks dc
+  WHERE 
+    1 - (dc.embedding <=> query_embedding) > match_threshold
+    AND (
+      filter_document_ids IS NULL 
+      OR dc.document_id = ANY(filter_document_ids)
+    )
+  ORDER BY dc.embedding <=> query_embedding
+  LIMIT match_count;
+$$;
