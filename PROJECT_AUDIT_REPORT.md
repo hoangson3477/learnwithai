@@ -341,6 +341,7 @@ concept_mastery
 | No Error Boundaries | UI crashes on API failures | User sees error messages with retry options | ✅ FIXED |
 | Lesson Progress Tracking | Users can't see progress | Visual progress tracker + step completion | ✅ FIXED |
 | Missing tesseract.js | Build fails on Vercel | Added to dependencies | ✅ FIXED |
+| TypeScript error similarity | Build fails type check | Changed to 'rank' property | ✅ FIXED |
 | Mixed Sample + API Data | Confusing UX | Some pages use hardcoded fallbacks, others don't | ⚠️ Partial |
 | Generic Error Messages | Poor UX | API errors are vague ("Có lỗi xảy ra") | ⚠️ Partial |
 | Vietnamese Only | Focus on Vietnamese users | UI optimized for Vietnamese | ✅ By Design |

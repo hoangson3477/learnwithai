@@ -68,7 +68,7 @@ export async function POST(request: Request) {
       sources: sources?.map(s => ({
         documentId: s.document_id,
         chunkText: s.chunk_text.substring(0, 200) + '...',
-        similarity: s.similarity,
+        rank: s.rank,
       })) || null,
       generatedWith: useRAG ? (sources ? 'RAG' : 'RAG_FALLBACK') : 'DIRECT',
     });
