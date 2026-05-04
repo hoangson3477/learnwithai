@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useRef, useEffect } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { useParams } from 'next/navigation';
 import { ProtectedPageWrapper } from '@/components/ProtectedPageWrapper';
 import { useAuth } from '@/contexts/auth';
@@ -8,6 +8,24 @@ import supabase from '@/lib/db/supabase';
 import { RoadmapRecommendations } from '@/components/RoadmapRecommendations';
 import { getAuthHeaders } from '@/lib/auth-headers';
 import Link from 'next/link';
+import { 
+  MessageSquare, 
+  FileText, 
+  Send, 
+  CheckCircle, 
+  XCircle, 
+  ArrowRight, 
+  Trophy, 
+  Star, 
+  Loader2, 
+  BookOpen, 
+  Clock,
+  ArrowLeft,
+  Check,
+  Lightbulb,
+  ChevronRight
+} from 'lucide-react';
+import ConceptBreakdown from '@/components/ConceptBreakdown';
 
 interface Message {
   role: 'user' | 'assistant';
@@ -50,7 +68,7 @@ function LessonContent() {
   const { user } = useAuth();
   const lessonId = params?.id as string;
 
-  const [step, setStep] = useState<'chat' | 'quiz' | 'complete'>('chat');
+  const [step, setStep] = useState<'concepts' | 'chat' | 'quiz' | 'complete'>('concepts');
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState('');
   const [loading, setLoading] = useState(false);
@@ -65,6 +83,73 @@ function LessonContent() {
   const [currentQuestionIdx, setCurrentQuestionIdx] = useState(0);
   const [answers, setAnswers] = useState<number[]>(new Array(DEFAULT_QUIZ.length).fill(-1));
   const [quizLoading, setQuizLoading] = useState(false);
+  const [lessonProgress, setLessonProgress] = useState({
+    concepts_completed: false,
+    chat_completed: false,
+    quiz_completed: false,
+    concepts_time: 0,
+    chat_time: 0,
+  });
+
+  // Save lesson progress as user moves through steps
+  const saveLessonProgress = useCallback(async (progressData: Partial<typeof lessonProgress>) => {
+    if (!user?.id || !lessonId) return;
+    
+    try {
+      const newProgress = { ...lessonProgress, ...progressData };
+      setLessonProgress(newProgress);
+      
+      // Calculate completion percentage
+      let completionPercent = 0;
+      if (newProgress.concepts_completed) completionPercent += 33;
+      if (newProgress.chat_completed) completionPercent += 33;
+      if (newProgress.quiz_completed) completionPercent += 34;
+      
+      await supabase.from('user_lesson_progress').upsert({
+        user_id: user.id,
+        lesson_id: lessonId,
+        is_completed: newProgress.quiz_completed,
+        completion_percentage: completionPercent,
+        last_accessed_at: new Date().toISOString(),
+        concepts_completed: newProgress.concepts_completed,
+        chat_completed: newProgress.chat_completed,
+        quiz_completed: newProgress.quiz_completed,
+      }, { onConflict: 'user_id,lesson_id' });
+    } catch (error) {
+      console.error('Error saving lesson progress:', error);
+    }
+  }, [user?.id, lessonId, lessonProgress]);
+
+  // Load existing lesson progress on mount
+  useEffect(() => {
+    const loadProgress = async () => {
+      if (!user?.id || !lessonId) return;
+      
+      try {
+        const { data } = await supabase
+          .from('user_lesson_progress')
+          .select('concepts_completed, chat_completed, quiz_completed')
+          .eq('user_id', user.id)
+          .eq('lesson_id', lessonId)
+          .single();
+          
+        if (data) {
+          setLessonProgress({
+            concepts_completed: data.concepts_completed || false,
+            chat_completed: data.chat_completed || false,
+            quiz_completed: data.quiz_completed || false,
+            concepts_time: 0,
+            chat_time: 0,
+          });
+        }
+      } catch (error) {
+        console.log('No existing progress found');
+      }
+    };
+    
+    loadProgress();
+  }, [user?.id, lessonId]);
+
   useEffect(() => {
     const loadLesson = async () => {
       if (!lessonId) return;
@@ -242,11 +327,17 @@ function LessonContent() {
               user_id: user.id,
               lesson_id: lessonId,
               is_completed: percentage >= 60,
+              quiz_completed: true,
+              completion_percentage: 100,
               points_earned: pointsEarned,
               completion_date: new Date().toISOString(),
+              last_accessed_at: new Date().toISOString(),
             },
             { onConflict: 'user_id,lesson_id' }
           );
+          
+          // Update local progress state
+          setLessonProgress(prev => ({ ...prev, quiz_completed: true }));
         }
       }
     } catch (error) {
@@ -266,60 +357,197 @@ function LessonContent() {
   const isCorrect = isAnswered && answers[currentQuestionIdx] === q.correctAnswer;
 
   if (lessonLoading) {
-    return <div className="min-h-screen flex items-center justify-center text-gray-600">Đang tải bài học...</div>;
+    return (
+      <div className="min-h-screen flex items-center justify-center text-slate-600 bg-gradient-to-br from-slate-50 via-indigo-50 to-purple-50">
+        <div className="flex flex-col items-center gap-4">
+          <Loader2 className="w-12 h-12 text-indigo-600 animate-spin" />
+          <p>Đang tải bài học...</p>
+        </div>
+      </div>
+    );
   }
 
   if (lessonError || !lesson) {
     return (
-      <div className="min-h-screen flex items-center justify-center">
+      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-slate-50 via-indigo-50 to-purple-50">
         <div className="text-center">
+          <div className="p-4 bg-red-100 rounded-xl w-fit mx-auto mb-4">
+            <XCircle className="w-12 h-12 text-red-600" />
+          </div>
           <p className="text-red-600 mb-4">{lessonError || 'Không tìm thấy bài học'}</p>
-          <Link href="/lessons" className="text-indigo-600 hover:underline">Quay lại danh sách bài học</Link>
+          <Link href="/lessons" className="text-indigo-600 hover:text-indigo-700 font-semibold inline-flex items-center gap-1">
+            <ArrowLeft className="w-4 h-4" />
+            <span>Quay lại danh sách bài học</span>
+          </Link>
         </div>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-green-50 to-emerald-50">
+    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-indigo-50 to-purple-50">
       {/* Header */}
-      <div className="bg-gradient-to-r from-green-500 to-emerald-600 text-white p-4 sticky top-16 z-40 shadow-lg">
+      <div className="bg-gradient-to-r from-indigo-500 to-purple-600 text-white p-4 sticky top-16 z-40 shadow-sm">
         <div className="max-w-4xl mx-auto flex items-center justify-between">
-          <h1 className="text-2xl font-bold">📚 {lesson.title}</h1>
-          <div className="flex gap-4">
+          <div className="flex items-center gap-3">
+            <div className="p-2 bg-white/20 rounded-xl">
+              <BookOpen className="w-6 h-6 text-white" />
+            </div>
+            <h1 className="text-2xl font-bold">{lesson.title}</h1>
+          </div>
+          <div className="flex gap-2">
             <button
-              onClick={() => setStep('chat')}
-              className={`px-4 py-2 rounded-full font-semibold transition ${
-                step === 'chat'
-                  ? 'bg-white text-green-600'
-                  : 'bg-green-400 text-white hover:bg-green-300'
+              onClick={() => setStep('concepts')}
+              className={`px-4 py-2 rounded-xl font-semibold transition-all duration-200 flex items-center gap-2 ${
+                step === 'concepts'
+                  ? 'bg-white text-indigo-600 shadow-md'
+                  : 'bg-indigo-400 text-white hover:bg-indigo-300'
               }`}
             >
-              💬 Chat
+              <Lightbulb className="w-4 h-4" />
+              <span>Concepts</span>
+            </button>
+            <button
+              onClick={() => setStep('chat')}
+              className={`px-4 py-2 rounded-xl font-semibold transition-all duration-200 flex items-center gap-2 ${
+                step === 'chat'
+                  ? 'bg-white text-indigo-600 shadow-md'
+                  : 'bg-indigo-400 text-white hover:bg-indigo-300'
+              }`}
+            >
+              <MessageSquare className="w-4 h-4" />
+              <span>Chat</span>
             </button>
             <button
               onClick={() => setStep('quiz')}
-              className={`px-4 py-2 rounded-full font-semibold transition ${
+              className={`px-4 py-2 rounded-xl font-semibold transition-all duration-200 flex items-center gap-2 ${
                 step === 'quiz'
-                  ? 'bg-white text-green-600'
-                  : 'bg-green-400 text-white hover:bg-green-300'
+                  ? 'bg-white text-indigo-600 shadow-md'
+                  : 'bg-indigo-400 text-white hover:bg-indigo-300'
               }`}
             >
-              📝 Quiz
+              <FileText className="w-4 h-4" />
+              <span>Quiz</span>
             </button>
+          </div>
+        </div>
+      </div>
+
+      {/* Lesson Progress Tracker */}
+      <div className="max-w-4xl mx-auto px-6 pt-6">
+        <div className="bg-white rounded-2xl shadow-sm border border-slate-200 p-6">
+          <div className="flex items-center justify-between mb-4">
+            <h2 className="text-lg font-bold text-slate-800">Tiến độ bài học</h2>
+            <span className="text-sm text-slate-600">
+              {step === 'concepts' ? 'Bước 1/4' : step === 'chat' ? 'Bước 2/4' : step === 'quiz' ? 'Bước 3/4' : 'Hoàn thành!'}
+            </span>
+          </div>
+          
+          {/* Progress Bar */}
+          <div className="w-full bg-slate-200 rounded-full h-3 mb-4">
+            <div
+              className="bg-gradient-to-r from-indigo-500 to-purple-600 h-3 rounded-full transition-all duration-500"
+              style={{
+                width: step === 'concepts' ? '25%' : step === 'chat' ? '50%' : step === 'quiz' ? '75%' : '100%'
+              }}
+            />
+          </div>
+
+          {/* Steps */}
+          <div className="flex items-center justify-between">
+            {[
+              { key: 'concepts', label: 'Concepts', icon: Lightbulb },
+              { key: 'chat', label: 'Chat', icon: MessageSquare },
+              { key: 'quiz', label: 'Quiz', icon: FileText },
+              { key: 'complete', label: 'Hoàn thành', icon: CheckCircle },
+            ].map((s, idx) => {
+              const StepIcon = s.icon;
+              const isActive = step === s.key;
+              const isCompleted = 
+                (step === 'chat' && idx === 0) ||
+                (step === 'quiz' && idx <= 1) ||
+                (step === 'complete' && idx <= 2) ||
+                (step === 'concepts' && idx === 0 && false);
+              
+              return (
+                <div key={s.key} className="flex items-center">
+                  <button
+                    onClick={() => {
+                      if (s.key !== 'complete') setStep(s.key as typeof step);
+                    }}
+                    disabled={s.key === 'complete'}
+                    className={`flex flex-col items-center gap-1 transition-all duration-200 ${
+                      s.key === 'complete' ? 'cursor-default' : 'cursor-pointer'
+                    }`}
+                  >
+                    <div className={`w-10 h-10 rounded-full flex items-center justify-center transition-all duration-200 ${
+                      isActive
+                        ? 'bg-gradient-to-r from-indigo-500 to-purple-600 text-white shadow-md'
+                        : isCompleted
+                        ? 'bg-green-100 text-green-600'
+                        : 'bg-slate-100 text-slate-400'
+                    }`}>
+                      {isCompleted && !isActive ? (
+                        <Check className="w-5 h-5" />
+                      ) : (
+                        <StepIcon className="w-5 h-5" />
+                      )}
+                    </div>
+                    <span className={`text-xs font-medium ${
+                      isActive ? 'text-indigo-600' : isCompleted ? 'text-green-600' : 'text-slate-400'
+                    }`}>
+                      {s.label}
+                    </span>
+                  </button>
+                  {idx < 3 && (
+                    <ChevronRight className={`w-5 h-5 mx-2 ${
+                      isCompleted ? 'text-green-400' : 'text-slate-300'
+                    }`} />
+                  )}
+                </div>
+              );
+            })}
           </div>
         </div>
       </div>
 
       <div className="max-w-4xl mx-auto p-6">
         {/* Chat Step */}
+        {step === 'concepts' && (
+          <div className="space-y-6">
+            <ConceptBreakdown
+              lessonId={lessonId}
+              userId={user?.id || ''}
+              onComplete={(conceptId) => {
+                console.log('Completed concept:', conceptId);
+              }}
+              onCreateFlashcards={(conceptId) => {
+                console.log('Created flashcards for concept:', conceptId);
+              }}
+            />
+            <button
+              onClick={() => {
+                saveLessonProgress({ concepts_completed: true });
+                setStep('chat');
+              }}
+              className="w-full py-3 bg-gradient-to-r from-indigo-500 to-purple-600 hover:shadow-lg text-white rounded-xl font-bold transition-all duration-200 text-lg flex items-center justify-center gap-2"
+            >
+              <span>Tiếp đến Chat</span>
+              <ArrowRight className="w-5 h-5" />
+            </button>
+          </div>
+        )}
+
+        {/* Chat Step */}
         {step === 'chat' && (
-          <div className="bg-white rounded-lg shadow-lg p-6 h-[500px] flex flex-col">
-            <div className="flex-1 overflow-y-auto mb-4 space-y-4 bg-gray-50 p-4 rounded-lg">
+          <div className="bg-white rounded-2xl shadow-sm border border-slate-200 p-6 h-[500px] flex flex-col">
+            <div className="flex-1 overflow-y-auto mb-4 space-y-4 bg-slate-50 p-4 rounded-xl">
               {messages.length === 0 && (
-                <div className="text-center text-gray-500 flex items-center justify-center h-full">
+                <div className="text-center text-slate-500 flex items-center justify-center h-full">
                   <div>
-                    <p className="text-2xl mb-2">👋</p>
+                    <div className="p-4 bg-indigo-100 rounded-xl w-fit mx-auto mb-4">
+                      <MessageSquare className="w-12 h-12 text-indigo-500" />
+                    </div>
                     <p>Hãy nói &quot;Hello&quot; hoặc bất kỳ điều gì bạn muốn học!</p>
                   </div>
                 </div>
@@ -331,10 +559,10 @@ function LessonContent() {
                   className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}
                 >
                   <div
-                    className={`max-w-xs px-4 py-2 rounded-lg ${
+                    className={`max-w-xs px-5 py-3 rounded-2xl ${
                       msg.role === 'user'
-                        ? 'bg-green-500 text-white rounded-br-none'
-                        : 'bg-gray-200 text-gray-800 rounded-bl-none'
+                        ? 'bg-gradient-to-r from-indigo-500 to-purple-600 text-white'
+                        : 'bg-white text-slate-800 shadow-sm border border-slate-200'
                     }`}
                   >
                     {msg.content}
@@ -344,8 +572,9 @@ function LessonContent() {
 
               {loading && (
                 <div className="flex justify-start">
-                  <div className="bg-gray-200 text-gray-800 px-4 py-2 rounded-lg">
-                    Đang gõ...
+                  <div className="bg-white text-slate-800 px-5 py-3 rounded-2xl shadow-sm border border-slate-200 flex items-center gap-2">
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                    <span>Đang gõ...</span>
                   </div>
                 </div>
               )}
@@ -354,50 +583,57 @@ function LessonContent() {
             </div>
 
             {/* Input */}
-            <form onSubmit={handleSendMessage} className="flex gap-2">
+            <form onSubmit={handleSendMessage} className="flex gap-3">
               <input
                 type="text"
                 value={input}
                 onChange={(e) => setInput(e.target.value)}
                 placeholder="Nhập tin nhắn..."
                 disabled={loading}
-                className="flex-1 px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500"
+                className="flex-1 px-4 py-3 border border-slate-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-all"
               />
               <button
                 type="submit"
                 disabled={loading || !input.trim()}
-                className="px-6 py-2 bg-green-500 text-white rounded-lg hover:bg-green-600 disabled:bg-gray-400 font-semibold transition"
+                className="px-6 py-3 bg-gradient-to-r from-indigo-500 to-purple-600 text-white rounded-xl hover:shadow-lg transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
               >
-                ▶
+                <span>Gửi</span>
+                <Send className="w-4 h-4" />
               </button>
             </form>
 
             {/* Next button */}
             <button
-              onClick={() => setStep('quiz')}
-              className="w-full mt-4 py-3 bg-green-500 hover:bg-green-600 text-white rounded-lg font-bold transition text-lg"
+              onClick={() => {
+                saveLessonProgress({ chat_completed: true });
+                setStep('quiz');
+              }}
+              className="w-full mt-4 py-3 bg-gradient-to-r from-indigo-500 to-purple-600 hover:shadow-lg text-white rounded-xl font-bold transition-all duration-200 text-lg flex items-center justify-center gap-2"
             >
-              Tiếp đến Quiz ▶
+              <span>Tiếp đến Quiz</span>
+              <ArrowRight className="w-5 h-5" />
             </button>
           </div>
         )}
 
         {/* Quiz Step */}
         {step === 'quiz' && (
-          <div className="bg-white rounded-lg shadow-lg p-8">
+          <div className="bg-white rounded-2xl shadow-sm border border-slate-200 p-8">
             {/* Progress bar */}
             <div className="mb-6">
               <div className="flex justify-between mb-2">
-                <span className="text-sm font-semibold">
-                  Câu {currentQuestionIdx + 1}/{quizQuestions.length}
+                <span className="text-sm font-semibold text-slate-700 flex items-center gap-1">
+                  <Clock className="w-4 h-4" />
+                  <span>Câu {currentQuestionIdx + 1}/{quizQuestions.length}</span>
                 </span>
-                <span className="text-sm font-semibold text-green-600">
-                  Đúng: {score}
+                <span className="text-sm font-semibold text-green-600 flex items-center gap-1">
+                  <CheckCircle className="w-4 h-4" />
+                  <span>Đúng: {score}</span>
                 </span>
               </div>
-              <div className="w-full bg-gray-200 rounded-full h-2">
+              <div className="w-full bg-slate-200 rounded-full h-2">
                 <div
-                  className="bg-green-500 h-2 rounded-full transition-all"
+                  className="bg-gradient-to-r from-indigo-500 to-purple-600 h-2 rounded-full transition-all"
                   style={{
                     width: `${((currentQuestionIdx + 1) / quizQuestions.length) * 100}%`,
                   }}
@@ -406,7 +642,7 @@ function LessonContent() {
             </div>
 
             {/* Question */}
-            <h2 className="text-2xl font-bold text-gray-800 mb-6">
+            <h2 className="text-2xl font-bold text-slate-800 mb-6">
               {q.question}
             </h2>
 
@@ -417,32 +653,44 @@ function LessonContent() {
                   key={idx}
                   onClick={() => handleAnswerSelect(idx)}
                   disabled={isAnswered}
-                  className={`w-full p-4 text-left rounded-lg border-2 font-semibold transition ${
+                  className={`w-full p-4 text-left rounded-xl border-2 font-semibold transition-all duration-200 ${
                     answers[currentQuestionIdx] === idx
                       ? isCorrect
                         ? 'bg-green-100 border-green-500 text-green-700'
                         : 'bg-red-100 border-red-500 text-red-700'
-                      : 'border-gray-300 hover:border-gray-400'
+                      : 'border-slate-300 hover:border-indigo-300 hover:bg-slate-50'
                   } ${
                     isAnswered && idx === q.correctAnswer && answers[currentQuestionIdx] !== idx
                       ? 'bg-green-100 border-green-500'
                       : ''
                   }`}
                 >
-                  {option}
+                  <div className="flex items-center gap-3">
+                    <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center ${
+                      answers[currentQuestionIdx] === idx
+                        ? isCorrect
+                          ? 'border-green-500 bg-green-500'
+                          : 'border-red-500 bg-red-500'
+                        : 'border-slate-400'
+                    }`}>
+                      {answers[currentQuestionIdx] === idx && <Check className="w-3 h-3 text-white" />}
+                    </div>
+                    <span>{option}</span>
+                  </div>
                 </button>
               ))}
             </div>
 
             {/* Explanation */}
             {isAnswered && (
-              <div className={`mb-6 p-4 rounded-lg ${
+              <div className={`mb-6 p-4 rounded-xl ${
                 isCorrect
                   ? 'bg-green-50 border-l-4 border-green-500 text-green-800'
                   : 'bg-red-50 border-l-4 border-red-500 text-red-800'
               }`}>
-                <p className="font-semibold mb-1">
-                  {isCorrect ? '✅ Chính xác!' : '❌ Chưa đúng'}
+                <p className="font-semibold mb-1 flex items-center gap-2">
+                  {isCorrect ? <CheckCircle className="w-4 h-4" /> : <XCircle className="w-4 h-4" />}
+                  <span>{isCorrect ? 'Chính xác!' : 'Chưa đúng'}</span>
                 </p>
                 <p className="text-sm">{q.explanation}</p>
               </div>
@@ -453,11 +701,12 @@ function LessonContent() {
               <button
                 onClick={handleNextQuestion}
                 disabled={quizLoading}
-                className="w-full py-3 bg-green-500 hover:bg-green-600 disabled:bg-gray-400 text-white rounded-lg font-bold transition text-lg"
+                className="w-full py-3 bg-gradient-to-r from-indigo-500 to-purple-600 hover:shadow-lg disabled:opacity-50 disabled:cursor-not-allowed text-white rounded-xl font-bold transition-all duration-200 text-lg flex items-center justify-center gap-2"
               >
-                {currentQuestionIdx === quizQuestions.length - 1
-                  ? 'Kết thúc Quiz ✓'
-                  : 'Câu tiếp theo ▶'}
+                <span>{currentQuestionIdx === quizQuestions.length - 1
+                  ? 'Kết thúc Quiz'
+                  : 'Câu tiếp theo'}</span>
+                <ArrowRight className="w-5 h-5" />
               </button>
             )}
           </div>
@@ -465,26 +714,31 @@ function LessonContent() {
 
         {/* Complete Step */}
         {step === 'complete' && (
-          <div className="bg-white rounded-lg shadow-lg p-12 text-center">
-            <div className="text-6xl mb-6">🎉</div>
-            <h2 className="text-3xl font-bold text-gray-800 mb-2">
+          <div className="bg-white rounded-2xl shadow-sm border border-slate-200 p-12 text-center">
+            <div className="p-4 bg-gradient-to-br from-green-100 to-emerald-100 rounded-xl w-fit mx-auto mb-6">
+              <Trophy className="w-16 h-16 text-green-600" />
+            </div>
+            <h2 className="text-3xl font-bold text-slate-800 mb-2">
               Hoàn thành bài học!
             </h2>
-            <p className="text-xl text-gray-600 mb-8">
+            <p className="text-xl text-slate-600 mb-8">
               Bạn đã hoàn thành bài học này. Quay lại để tiếp tục học những bài tiếp theo!
             </p>
 
-            <div className="space-y-4 mb-8">
-              <div className="bg-green-50 p-6 rounded-lg">
-                <p className="text-gray-600 mb-1">Quiz Score</p>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
+              <div className="bg-gradient-to-br from-green-50 to-emerald-50 p-6 rounded-xl border border-green-100">
+                <p className="text-slate-600 mb-1">Quiz Score</p>
                 <p className="text-4xl font-bold text-green-600">
                   {percentage}%
                 </p>
               </div>
-              <div className="bg-blue-50 p-6 rounded-lg">
-                <p className="text-gray-600 mb-1">Điểm thưởng</p>
-                <p className="text-4xl font-bold text-blue-600">
-                  +{percentage >= 80 ? 10 : 5} ⭐
+              <div className="bg-gradient-to-br from-indigo-50 to-purple-50 p-6 rounded-xl border border-indigo-100">
+                <p className="text-slate-600 mb-1 flex items-center justify-center gap-1">
+                  <Star className="w-4 h-4" />
+                  <span>Điểm thưởng</span>
+                </p>
+                <p className="text-4xl font-bold text-indigo-600">
+                  +{percentage >= 80 ? 10 : 5}
                 </p>
               </div>
             </div>
@@ -496,15 +750,17 @@ function LessonContent() {
             <div className="flex gap-4">
               <Link
                 href="/lessons"
-                className="flex-1 py-3 bg-green-500 hover:bg-green-600 text-white rounded-lg font-bold transition text-lg"
+                className="flex-1 py-3 bg-gradient-to-r from-indigo-500 to-purple-600 hover:shadow-lg text-white rounded-xl font-bold transition-all duration-200 text-lg flex items-center justify-center gap-2"
               >
-                ← Quay lại bài học
+                <ArrowLeft className="w-5 h-5" />
+                <span>Quay lại bài học</span>
               </Link>
               <Link
                 href="/lessons"
-                className="flex-1 py-3 bg-blue-500 hover:bg-blue-600 text-white rounded-lg font-bold transition text-lg"
+                className="flex-1 py-3 bg-gradient-to-r from-green-500 to-emerald-600 hover:shadow-lg text-white rounded-xl font-bold transition-all duration-200 text-lg flex items-center justify-center gap-2"
               >
-                Bài học tiếp theo →
+                <span>Bài học tiếp theo</span>
+                <ArrowRight className="w-5 h-5" />
               </Link>
             </div>
           </div>

@@ -1,44 +1,96 @@
 import { NextResponse } from 'next/server';
 import { createServiceSupabase } from '@/lib/db/server';
-import { chunkText, generateEmbedding } from '@/lib/rag';
+import { chunkText } from '@/lib/rag';
 import { getAuth } from '@/lib/auth-headers';
+// eslint-disable-next-line @typescript-eslint/no-require-imports
+const Tesseract = require('tesseract.js');
 
-// Text extraction libraries (dynamic import to reduce startup time)
+// OCR with Tesseract.js (free, offline) - optimized to release memory
+async function ocrWithTesseract(imageBuffer: Buffer): Promise<string> {
+  const worker = await Tesseract.createWorker('vie');
+  try {
+    const result = await worker.recognize(imageBuffer);
+    return result.data.text;
+  } finally {
+    await worker.terminate(); // Release memory
+  }
+}
+
+// Try text-based extraction first, then OCR if needed
 async function extractFromPDF(buffer: Buffer): Promise<string> {
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const pdf = await import('pdf-parse') as unknown as { default: (buffer: Buffer) => Promise<{ text: string }> };
-  const result = await pdf.default(buffer);
-  return result.text;
+  // Method 1: Try direct text extraction (for text-based PDFs)
+  try {
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
+    const pdfParse = require('pdf-parse');
+    const result = await pdfParse(buffer);
+    const text = result.text?.trim() || '';
+    
+    console.log(`PDF text extraction: ${text.length} chars, first 200 chars: "${text.substring(0, 200)}"`);
+    
+    // If we got substantial text, use it
+    if (text.length > 100) {
+      console.log('PDF extracted via text-based method');
+      return text;
+    }
+  } catch {
+    console.log('Text-based PDF extraction failed, trying OCR...');
+  }
+  
+  // Method 2: OCR for scanned/image PDFs (convert to images)
+  try {
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
+    const { pdf } = require('pdf-to-img');
+    
+    const pages = await pdf(buffer, { scale: 1.5 });
+    const texts: string[] = [];
+    const maxPages = 50; // Increased to process full documents
+    let pageCount = 0;
+    
+    for await (const image of pages) {
+      pageCount++;
+      if (pageCount > maxPages) break;
+      
+      try {
+        const worker = await Tesseract.createWorker('vie');
+        try {
+          const result = await worker.recognize(image);
+          if (result.data.text.trim()) texts.push(result.data.text);
+        } finally {
+          await worker.terminate(); // Release memory after each page
+        }
+      } catch (err) {
+        console.warn(`OCR failed for page ${pageCount}:`, err);
+      }
+      
+      // Force GC between pages
+      if (global.gc) global.gc();
+    }
+    
+    if (texts.length > 0) {
+      console.log(`PDF extracted via OCR (${texts.length} pages)`);
+      return texts.join('\n\n');
+    }
+  } catch (e) {
+    console.error('OCR extraction failed:', e);
+  }
+  
+  throw new Error('Could not extract text from PDF (tried both text-based and OCR methods)');
 }
 
 async function extractFromWord(buffer: Buffer): Promise<string> {
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const mammoth = await import('mammoth') as unknown as { extractRawText: (opts: { buffer: Buffer }) => Promise<{ value: string }> };
+  // eslint-disable-next-line @typescript-eslint/no-require-imports
+  const mammothModule = require('mammoth');
+  const mammoth = mammothModule.default || mammothModule;
   const result = await mammoth.extractRawText({ buffer });
-  return result.value;
+  const text = result.value;
+  
+  console.log(`Word text extraction: ${text.length} chars, first 200 chars: "${text.substring(0, 200)}"`);
+  
+  return text;
 }
 
-async function extractFromImage(buffer: Buffer, mimeType: string): Promise<string> {
-  const { GoogleGenerativeAI } = await import('@google/generative-ai');
-  const apiKey = process.env.GOOGLE_GEMINI_API_KEY;
-  if (!apiKey) throw new Error('Missing GOOGLE_GEMINI_API_KEY');
-  
-  const genAI = new GoogleGenerativeAI(apiKey);
-  const model = genAI.getGenerativeModel({ model: 'gemini-2.0-flash' });
-  
-  const base64Data = buffer.toString('base64');
-  
-  const result = await model.generateContent([
-    {
-      inlineData: {
-        mimeType,
-        data: base64Data,
-      },
-    },
-    { text: 'Trích xuất toàn bộ văn bản từ hình ảnh này. Giữ nguyên cấu trúc và định dạng nếu có thể.' },
-  ]);
-  
-  return result.response.text();
+async function extractFromImage(buffer: Buffer): Promise<string> {
+  return ocrWithTesseract(buffer);
 }
 
 export async function POST(request: Request) {
@@ -86,8 +138,13 @@ export async function POST(request: Request) {
     }
 
     // Upload to Supabase Storage
-    const fileName = `${documentId}/${Date.now()}_${file.name}`;
-    const { data: uploadData, error: uploadError } = await supabase.storage
+    // Sanitize filename: remove Vietnamese chars and special characters
+    const sanitized = file.name
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '') // Remove diacritics
+      .replace(/[^a-zA-Z0-9._-]/g, '_'); // Replace special chars with underscore
+    const fileName = `${documentId}/${Date.now()}_${sanitized}`;
+    const { error: uploadError } = await supabase.storage
       .from('document-files')
       .upload(fileName, file, {
         contentType: file.type,
@@ -97,11 +154,6 @@ export async function POST(request: Request) {
     if (uploadError) {
       throw new Error(`Upload failed: ${uploadError.message}`);
     }
-
-    // Get public URL
-    const { data: { publicUrl } } = supabase.storage
-      .from('document-files')
-      .getPublicUrl(fileName);
 
     // Create source file record
     const { data: sourceFile, error: dbError } = await supabase
@@ -186,7 +238,7 @@ async function processFile(
       case 'jpg':
       case 'jpeg':
       case 'png':
-        extractedText = await extractFromImage(buffer, fileData.type);
+        extractedText = await extractFromImage(buffer);
         break;
       default:
         throw new Error(`Unsupported file type: ${fileType}`);
@@ -199,19 +251,13 @@ async function processFile(
     // Chunk text
     const chunks = chunkText(extractedText);
 
-    // Store chunks with embeddings
-    const records = await Promise.all(
-      chunks.map(async (chunk, index) => {
-        const embedding = await generateEmbedding(chunk);
-        return {
-          document_id: documentId,
-          chunk_text: chunk,
-          embedding,
-          chunk_index: index,
-          metadata: { source_file_id: sourceFileId },
-        };
-      })
-    );
+    // Store chunks (text-based, no embeddings)
+    const records = chunks.map((chunk, index) => ({
+      document_id: documentId,
+      chunk_text: chunk,
+      chunk_index: index,
+      metadata: { source_file_id: sourceFileId },
+    }));
 
     const { error: insertError } = await supabase
       .from('document_chunks')

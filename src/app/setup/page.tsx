@@ -5,16 +5,34 @@ import { useRouter } from 'next/navigation';
 import { useAuth } from '@/contexts/auth';
 import { ProtectedPageWrapper } from '@/components/ProtectedPageWrapper';
 import supabase from '@/lib/db/supabase';
+import { 
+  User, 
+  Target, 
+  Lightbulb, 
+  Check, 
+  Loader2, 
+  ArrowRight,
+  GraduationCap,
+  Calculator,
+  FlaskConical,
+  Globe,
+  BookOpen,
+  Code,
+  MapPin,
+  PenTool,
+  Palette,
+  AlertCircle
+} from 'lucide-react';
 
 const LEARNING_TOPICS = [
-  { id: 'math', label: 'Toán học', emoji: '🔢' },
-  { id: 'science', label: 'Khoa học', emoji: '🔬' },
-  { id: 'english', label: 'Tiếng Anh', emoji: '🌍' },
-  { id: 'history', label: 'Lịch sử', emoji: '📚' },
-  { id: 'programming', label: 'Lập trình', emoji: '💻' },
-  { id: 'geography', label: 'Địa lý', emoji: '🗺️' },
-  { id: 'literature', label: 'Văn học', emoji: '✍️' },
-  { id: 'art', label: 'Nghệ thuật', emoji: '🎨' },
+  { id: 'math', label: 'Toán học', icon: Calculator },
+  { id: 'science', label: 'Khoa học', icon: FlaskConical },
+  { id: 'english', label: 'Tiếng Anh', icon: Globe },
+  { id: 'history', label: 'Lịch sử', icon: BookOpen },
+  { id: 'programming', label: 'Lập trình', icon: Code },
+  { id: 'geography', label: 'Địa lý', icon: MapPin },
+  { id: 'literature', label: 'Văn học', icon: PenTool },
+  { id: 'art', label: 'Nghệ thuật', icon: Palette },
 ];
 
 function SetupContent() {
@@ -103,25 +121,34 @@ function SetupContent() {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-indigo-50 via-white to-blue-50">
+    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-indigo-50 to-purple-50">
       {/* Header */}
-      <div className="bg-gradient-to-r from-indigo-600 to-blue-600 text-white p-8">
-        <h1 className="text-4xl font-bold mb-2">Chào mừng đến Học với AI! 🎓</h1>
-        <p className="text-indigo-100">Hãy thiết lập hồ sơ của bạn để bắt đầu học tập</p>
+      <div className="bg-gradient-to-r from-indigo-500 to-purple-600 text-white p-8">
+        <div className="max-w-2xl mx-auto">
+          <div className="flex items-center gap-3 mb-2">
+            <div className="p-3 bg-white/20 rounded-xl">
+              <GraduationCap className="w-8 h-8 text-white" />
+            </div>
+            <h1 className="text-4xl font-bold">Chào mừng đến Học với AI!</h1>
+          </div>
+          <p className="text-indigo-100">Hãy thiết lập hồ sơ của bạn để bắt đầu học tập</p>
+        </div>
       </div>
 
       <div className="max-w-2xl mx-auto p-8">
-        <form onSubmit={handleSubmit} className="bg-white rounded-lg shadow-lg p-8">
+        <form onSubmit={handleSubmit} className="bg-white rounded-2xl shadow-sm border border-slate-200 p-8">
           {error && (
-            <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg mb-6">
-              {error}
+            <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-xl mb-6 flex items-center gap-2">
+              <AlertCircle className="w-4 h-4" />
+              <span>{error}</span>
             </div>
           )}
 
           {/* Tên đầy đủ */}
           <div className="mb-8">
-            <label htmlFor="fullName" className="block text-lg font-semibold text-gray-800 mb-3">
-              📝 Tên của bạn
+            <label htmlFor="fullName" className="block text-lg font-semibold text-slate-800 mb-3 flex items-center gap-2">
+              <User className="w-5 h-5 text-indigo-500" />
+              <span>Tên của bạn</span>
             </label>
             <input
               type="text"
@@ -130,7 +157,7 @@ function SetupContent() {
               onChange={(e) =>
                 setFormData((prev) => ({ ...prev, fullName: e.target.value }))
               }
-              className="w-full px-4 py-3 border-2 border-gray-300 rounded-lg focus:outline-none focus:border-indigo-500 text-gray-700"
+              className="w-full px-4 py-3 border border-slate-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 text-slate-700 transition-all"
               placeholder="Ví dụ: Nguyễn Văn A"
               disabled={loading}
             />
@@ -138,33 +165,49 @@ function SetupContent() {
 
           {/* Chủ đề học tập */}
           <div className="mb-8">
-            <label className="block text-lg font-semibold text-gray-800 mb-4">
-              🎯 Các chủ đề bạn muốn học (chọn ít nhất 1)
+            <label className="block text-lg font-semibold text-slate-800 mb-4 flex items-center gap-2">
+              <Target className="w-5 h-5 text-indigo-500" />
+              <span>Các chủ đề bạn muốn học (chọn ít nhất 1)</span>
             </label>
             <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
-              {LEARNING_TOPICS.map((topic) => (
-                <button
-                  key={topic.id}
-                  type="button"
-                  onClick={() => handleTopicToggle(topic.id)}
-                  disabled={loading}
-                  className={`p-4 rounded-lg border-2 transition text-center ${
-                    formData.selectedTopics.includes(topic.id)
-                      ? 'border-indigo-600 bg-indigo-50'
-                      : 'border-gray-300 bg-gray-50 hover:border-indigo-300'
-                  } disabled:opacity-50`}
-                >
-                  <div className="text-3xl mb-2">{topic.emoji}</div>
-                  <div className="text-sm font-medium text-gray-700">{topic.label}</div>
-                </button>
-              ))}
+              {LEARNING_TOPICS.map((topic) => {
+                const Icon = topic.icon;
+                return (
+                  <button
+                    key={topic.id}
+                    type="button"
+                    onClick={() => handleTopicToggle(topic.id)}
+                    disabled={loading}
+                    className={`p-4 rounded-xl border-2 transition text-center group ${
+                      formData.selectedTopics.includes(topic.id)
+                        ? 'border-indigo-500 bg-gradient-to-br from-indigo-50 to-purple-50'
+                        : 'border-slate-200 bg-slate-50 hover:border-indigo-300'
+                    } disabled:opacity-50`}
+                  >
+                    <div className="flex justify-center mb-2">
+                      <Icon className={`w-8 h-8 ${
+                        formData.selectedTopics.includes(topic.id)
+                          ? 'text-indigo-600'
+                          : 'text-slate-400 group-hover:text-indigo-500'
+                      } transition-colors`} />
+                    </div>
+                    <div className="text-sm font-medium text-slate-700">{topic.label}</div>
+                    {formData.selectedTopics.includes(topic.id) && (
+                      <div className="flex justify-center mt-2">
+                        <Check className="w-4 h-4 text-indigo-600" />
+                      </div>
+                    )}
+                  </button>
+                );
+              })}
             </div>
           </div>
 
           {/* Mục tiêu học tập */}
           <div className="mb-8">
-            <label htmlFor="goal" className="block text-lg font-semibold text-gray-800 mb-3">
-              🚀 Mục tiêu học tập (tùy chọn)
+            <label htmlFor="goal" className="block text-lg font-semibold text-slate-800 mb-3 flex items-center gap-2">
+              <Target className="w-5 h-5 text-indigo-500" />
+              <span>Mục tiêu học tập (tùy chọn)</span>
             </label>
             <textarea
               id="goal"
@@ -172,7 +215,7 @@ function SetupContent() {
               onChange={(e) =>
                 setFormData((prev) => ({ ...prev, learningGoal: e.target.value }))
               }
-              className="w-full px-4 py-3 border-2 border-gray-300 rounded-lg focus:outline-none focus:border-indigo-500 text-gray-700 resize-none"
+              className="w-full px-4 py-3 border border-slate-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 text-slate-700 resize-none transition-all"
               placeholder="Ví dụ: Muốn tăng cường kỹ năng toán học, chuẩn bị cho kỳ thi..."
               rows={4}
               disabled={loading}
@@ -183,19 +226,41 @@ function SetupContent() {
           <button
             type="submit"
             disabled={loading}
-            className="w-full bg-gradient-to-r from-indigo-600 to-blue-600 hover:from-indigo-700 hover:to-blue-700 disabled:from-gray-400 disabled:to-gray-400 text-white font-semibold py-3 rounded-lg transition text-lg"
+            className="w-full px-4 py-3 bg-gradient-to-r from-indigo-500 to-purple-600 hover:shadow-lg disabled:opacity-50 disabled:cursor-not-allowed text-white font-semibold rounded-xl transition-all duration-200 flex items-center justify-center gap-2 text-lg"
           >
-            {loading ? 'Đang lưu...' : 'Bắt đầu học tập'}
+            {loading ? (
+              <>
+                <Loader2 className="w-5 h-5 animate-spin" />
+                <span>Đang lưu...</span>
+              </>
+            ) : (
+              <>
+                <span>Bắt đầu học tập</span>
+                <ArrowRight className="w-5 h-5" />
+              </>
+            )}
           </button>
         </form>
 
         {/* Info box */}
-        <div className="mt-8 bg-blue-50 border-l-4 border-blue-600 p-6 rounded">
-          <h3 className="font-semibold text-blue-900 mb-2">💡 Gợi ý:</h3>
-          <ul className="text-blue-800 space-y-1 text-sm">
-            <li>• Bạn có thể thay đổi các chủ đề học tập bất kỳ lúc nào</li>
-            <li>• Chọn những chủ đề bạn thực sự quan tâm để học tập hiệu quả hơn</li>
-            <li>• AI tutor sẽ giúp bạn học tập thích ứng dựa trên lựa chọn của bạn</li>
+        <div className="mt-8 bg-gradient-to-r from-indigo-50 to-purple-50 border border-indigo-100 p-6 rounded-xl">
+          <h3 className="font-semibold text-indigo-900 mb-3 flex items-center gap-2">
+            <Lightbulb className="w-5 h-5" />
+            <span>Gợi ý:</span>
+          </h3>
+          <ul className="text-indigo-800 space-y-2 text-sm">
+            <li className="flex items-start gap-2">
+              <span className="text-indigo-500 mt-0.5">•</span>
+              <span>Bạn có thể thay đổi các chủ đề học tập bất kỳ lúc nào</span>
+            </li>
+            <li className="flex items-start gap-2">
+              <span className="text-indigo-500 mt-0.5">•</span>
+              <span>Chọn những chủ đề bạn thực sự quan tâm để học tập hiệu quả hơn</span>
+            </li>
+            <li className="flex items-start gap-2">
+              <span className="text-indigo-500 mt-0.5">•</span>
+              <span>AI tutor sẽ giúp bạn học tập thích ứng dựa trên lựa chọn của bạn</span>
+            </li>
           </ul>
         </div>
       </div>

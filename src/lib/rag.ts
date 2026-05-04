@@ -1,8 +1,7 @@
 import { createServiceSupabase } from '@/lib/db/server';
-import genAI from '@/lib/gemini';
 
-const CHUNK_SIZE = 1500;     // Characters per chunk
-const CHUNK_OVERLAP = 200;   // Overlap between chunks
+const CHUNK_SIZE = 3000;     // Characters per chunk
+const CHUNK_OVERLAP = 300;   // Overlap between chunks
 
 export interface ChunkMatch {
   id: string;
@@ -10,7 +9,7 @@ export interface ChunkMatch {
   chunk_text: string;
   chunk_index: number;
   metadata: Record<string, unknown>;
-  similarity: number;
+  rank: number; // Text search rank instead of similarity
 }
 
 export interface RAGQueryResult {
@@ -24,8 +23,23 @@ export interface RAGQueryResult {
 export function chunkText(text: string, chunkSize = CHUNK_SIZE, overlap = CHUNK_OVERLAP): string[] {
   const chunks: string[] = [];
   let start = 0;
+  const maxChunks = 1000; // Safety limit
+  let chunkCount = 0;
+  let lastStart = -1; // Track last start position to detect infinite loop
   
-  while (start < text.length) {
+  // Ensure overlap is smaller than chunk size
+  const safeOverlap = Math.min(overlap, chunkSize - 100);
+  
+  console.log(`[chunkText] Total text length: ${text.length}, chunkSize: ${chunkSize}, overlap: ${safeOverlap}`);
+  
+  while (start < text.length && chunkCount < maxChunks) {
+    // Detect infinite loop
+    if (start === lastStart) {
+      console.warn(`[chunkText] Infinite loop detected at start=${start}, breaking`);
+      break;
+    }
+    lastStart = start;
+    
     const end = Math.min(start + chunkSize, text.length);
     let chunk = text.slice(start, end);
     
@@ -39,24 +53,35 @@ export function chunkText(text: string, chunkSize = CHUNK_SIZE, overlap = CHUNK_
       }
     }
     
-    chunks.push(chunk.trim());
-    start = end - overlap;
+    const trimmed = chunk.trim();
+    if (trimmed.length > 50) {
+      chunks.push(trimmed);
+      chunkCount++;
+      console.log(`[chunkText] Chunk ${chunkCount}: start=${start}, end=${end}, length=${trimmed.length}, first 100 chars: "${trimmed.substring(0, 100)}"`);
+    }
+    
+    // Move start forward - ensure it always increases
+    const newStart = end - safeOverlap;
+    if (newStart <= start) {
+      start = end; // Fallback: move to end if overlap doesn't advance
+    } else {
+      start = newStart;
+    }
   }
   
-  return chunks.filter(c => c.length > 50);
+  console.log(`[chunkText] Total chunks created: ${chunks.length}`);
+  
+  // Check for duplicates
+  const uniqueChunks = new Set(chunks);
+  if (uniqueChunks.size !== chunks.length) {
+    console.warn(`[chunkText] WARNING: Found ${chunks.length - uniqueChunks.size} duplicate chunks!`);
+  }
+  
+  return chunks;
 }
 
 /**
- * Generate embedding using Gemini
- */
-export async function generateEmbedding(text: string): Promise<number[]> {
-  const model = genAI.getGenerativeModel({ model: 'text-embedding-004' });
-  const result = await model.embedContent(text);
-  return result.embedding.values;
-}
-
-/**
- * Store document chunks with embeddings
+ * Store document chunks (text-based, no embeddings)
  */
 export async function storeDocumentChunks(
   documentId: string,
@@ -65,18 +90,12 @@ export async function storeDocumentChunks(
 ): Promise<void> {
   const supabase = createServiceSupabase();
   
-  const records = await Promise.all(
-    chunks.map(async (chunk, index) => {
-      const embedding = await generateEmbedding(chunk);
-      return {
-        document_id: documentId,
-        chunk_text: chunk,
-        embedding,
-        chunk_index: index,
-        metadata: metadata[index] || {},
-      };
-    })
-  );
+  const records = chunks.map((chunk, index) => ({
+    document_id: documentId,
+    chunk_text: chunk,
+    chunk_index: index,
+    metadata: metadata[index] || {},
+  }));
   
   const { error } = await supabase.from('document_chunks').insert(records);
   
@@ -86,33 +105,38 @@ export async function storeDocumentChunks(
 }
 
 /**
- * Search similar chunks using vector similarity
+ * Search chunks using PostgreSQL full-text search
  */
 export async function searchSimilarChunks(
   query: string,
   options: {
-    matchThreshold?: number;
     matchCount?: number;
     filterDocumentIds?: string[];
   } = {}
 ): Promise<ChunkMatch[]> {
-  const { matchThreshold = 0.5, matchCount = 5, filterDocumentIds } = options;
+  const { matchCount = 5, filterDocumentIds } = options;
   
   const supabase = createServiceSupabase();
-  const queryEmbedding = await generateEmbedding(query);
   
-  const { data, error } = await supabase.rpc('match_document_chunks', {
-    query_embedding: queryEmbedding,
-    match_threshold: matchThreshold,
-    match_count: matchCount,
-    filter_document_ids: filterDocumentIds || null,
-  });
+  let dbQuery = supabase
+    .from('document_chunks')
+    .select('id, document_id, chunk_text, chunk_index, metadata')
+    .textSearch('chunk_text', query, {
+      type: 'websearch',
+    })
+    .limit(matchCount);
+  
+  if (filterDocumentIds && filterDocumentIds.length > 0) {
+    dbQuery = dbQuery.in('document_id', filterDocumentIds);
+  }
+  
+  const { data, error } = await dbQuery;
   
   if (error) {
     throw new Error(`Failed to search chunks: ${error.message}`);
   }
   
-  return (data || []) as ChunkMatch[];
+  return (data || []).map((c, i) => ({ ...c, rank: i })) as ChunkMatch[];
 }
 
 /**
@@ -126,35 +150,66 @@ export async function getLessonContext(
     matchThreshold?: number;
   } = {}
 ): Promise<RAGQueryResult> {
+  console.log(`[RAG] Getting context for topic: "${topic}", grade: ${gradeLevel}`);
   const supabase = createServiceSupabase();
   
-  // Build search query
-  let searchQuery = topic;
-  if (gradeLevel) {
-    searchQuery += ` lớp ${gradeLevel}`;
-  }
+  // Build search query - only use topic, don't add grade level
+  const searchQuery = topic;
+  console.log(`[RAG] Search query: "${searchQuery}"`);
   
   // Find relevant documents by grade level if specified
   let filterDocumentIds: string[] | undefined;
   if (gradeLevel) {
-    const { data: docs } = await supabase
-      .from('documents')
+    console.log(`[RAG] Filtering documents by grade level: ${gradeLevel}`);
+    
+    // First, get the UUID for this grade level
+    const { data: gradeLevelData, error: gradeError } = await supabase
+      .from('grade_levels')
       .select('id')
-      .eq('grade_level_id', gradeLevel);
-    filterDocumentIds = docs?.map(d => d.id);
+      .eq('grade', gradeLevel)
+      .single();
+    
+    if (gradeError) {
+      console.error(`[RAG] Error getting grade level UUID:`, gradeError);
+    } else {
+      console.log(`[RAG] Grade level UUID: ${gradeLevelData?.id}`);
+      
+      // Then filter documents by UUID
+      const { data: docs, error: docsError } = await supabase
+        .from('documents')
+        .select('id, grade_level_id')
+        .eq('grade_level_id', gradeLevelData?.id);
+      
+      if (docsError) {
+        console.error(`[RAG] Error filtering documents by grade:`, docsError);
+      }
+      
+      filterDocumentIds = docs?.map(d => d.id);
+      console.log(`[RAG] Found ${filterDocumentIds?.length || 0} documents for grade ${gradeLevel}`);
+      console.log(`[RAG] Document IDs: ${filterDocumentIds?.join(', ') || 'none'}`);
+    }
+    
+    // Fallback: if no documents for this grade, search all documents
+    if (!filterDocumentIds || filterDocumentIds.length === 0) {
+      console.log(`[RAG] No documents for grade ${gradeLevel}, searching all documents`);
+      filterDocumentIds = undefined;
+    }
   }
   
   // Search for relevant chunks
+  console.log(`[RAG] Searching chunks...`);
   const chunks = await searchSimilarChunks(searchQuery, {
     ...options,
     filterDocumentIds,
   });
+  console.log(`[RAG] Found ${chunks.length} relevant chunks`);
   
   // Combine chunks into context
   const combinedContext = chunks
     .map((c, i) => `[${i + 1}] ${c.chunk_text}`)
     .join('\n\n');
   
+  console.log(`[RAG] Combined context length: ${combinedContext.length} chars`);
   return { chunks, combinedContext };
 }
 
@@ -183,8 +238,6 @@ export async function generateLessonWithRAG(
     throw new Error('No relevant documents found for this topic and grade level');
   }
   
-  const model = genAI.getGenerativeModel({ model: 'gemini-2.0-flash' });
-  
   const prompt = `Bạn là giáo viên chuyên nghiệp dạy môn ${subject} tại Việt Nam.
 
 Nhiệm vụ: Tạo nội dung bài học cho chủ đề "${topic}" dành cho học sinh lớp ${gradeLevel}.
@@ -206,8 +259,16 @@ Yêu cầu:
 - Ngôn ngữ: Tiếng Việt
 - Cấp độ: Phù hợp lớp ${gradeLevel}
 - Nội dung: Dựa HOÀN TOÀN trên tài liệu tham khảo
-- Phong cách: Dễ hiểu, có ví dụ thực tế`;
+- Phong cách: Dễ hiểu, có ví dụ thực tế
 
+Chỉ trả về JSON, không có text khác.`;
+
+  // Use Gemini for generation (better quality, no rate limit)
+  // eslint-disable-next-line @typescript-eslint/no-var-requires
+  const { GoogleGenerativeAI } = require('@google/generative-ai');
+  const genAI = new GoogleGenerativeAI(process.env.GOOGLE_GEMINI_API_KEY);
+  const model = genAI.getGenerativeModel({ model: 'gemini-2.5-flash-lite' });
+  
   const result = await model.generateContent(prompt);
   const response = result.response.text();
   

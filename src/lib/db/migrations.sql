@@ -746,6 +746,37 @@ VALUES
   )
 ON CONFLICT DO NOTHING;
 
+-- Study Spaces table for personal learning spaces
+CREATE TABLE IF NOT EXISTS study_spaces (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  name TEXT NOT NULL,
+  theme TEXT DEFAULT 'from-indigo-500 to-purple-600',
+  icon TEXT DEFAULT 'book',
+  goal TEXT,
+  created_at TIMESTAMP DEFAULT NOW(),
+  updated_at TIMESTAMP DEFAULT NOW(),
+  UNIQUE(user_id)
+);
+
+-- Index for study_spaces
+CREATE INDEX IF NOT EXISTS idx_study_spaces_user_id ON study_spaces(user_id);
+
+-- RLS for study_spaces
+ALTER TABLE study_spaces ENABLE ROW LEVEL SECURITY;
+
+DROP POLICY IF EXISTS "Users can view own study space" ON study_spaces;
+CREATE POLICY "Users can view own study space" ON study_spaces
+  FOR SELECT USING (auth.uid() = user_id);
+
+DROP POLICY IF EXISTS "Users can manage own study space" ON study_spaces;
+CREATE POLICY "Users can manage own study space" ON study_spaces
+  FOR INSERT WITH CHECK (auth.uid() = user_id);
+CREATE POLICY "Users can update own study space" ON study_spaces
+  FOR UPDATE USING (auth.uid() = user_id);
+CREATE POLICY "Users can delete own study space" ON study_spaces
+  FOR DELETE USING (auth.uid() = user_id);
+
 -- Seed sample documents
 INSERT INTO documents (title, description, topic, content, author, tags)
 VALUES
@@ -1193,11 +1224,14 @@ CREATE TABLE IF NOT EXISTS document_chunks (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   document_id UUID NOT NULL REFERENCES documents(id) ON DELETE CASCADE,
   chunk_text TEXT NOT NULL,
-  embedding VECTOR(768) NOT NULL,  -- Gemini embedding-004 produces 768 dimensions
+  embedding VECTOR(768),  -- Made nullable for text-based RAG (no embeddings)
   chunk_index INT NOT NULL,        -- Order of chunk within document
   metadata JSONB DEFAULT '{}',     -- Page number, section, etc.
   created_at TIMESTAMP DEFAULT NOW()
 );
+
+-- Make embedding nullable if table already exists
+ALTER TABLE document_chunks ALTER COLUMN embedding DROP NOT NULL;
 
 -- Index for fast similarity search
 CREATE INDEX IF NOT EXISTS idx_document_chunks_embedding ON document_chunks 
@@ -1292,3 +1326,346 @@ AS $$
   ORDER BY dc.embedding <=> query_embedding
   LIMIT match_count;
 $$;
+
+-- =====================================================
+-- RAG Setup Instructions (Manual Steps Required)
+-- =====================================================
+
+/*
+1. ENABLE PGVECTOR EXTENSION (in Supabase Dashboard):
+   - Go to: Database → Extensions
+   - Search: "vector"
+   - Click toggle to enable
+
+2. CREATE STORAGE BUCKET (in Supabase Dashboard):
+   - Go to: Storage → New Bucket
+   - Name: "document-files"
+   - Public bucket: YES
+   - Allowed MIME types: 
+     * application/pdf
+     * application/msword
+     * application/vnd.openxmlformats-officedocument.wordprocessingml.document
+     * image/jpeg
+     * image/png
+   
+3. SET STORAGE POLICIES (in Supabase Dashboard):
+   - Go to: Storage → document-files → Policies
+   - Add these policies:
+   
+   a) SELECT policy (for public read):
+      Name: "Allow public read"
+      Allowed operations: SELECT
+      Target roles: public, authenticated
+      Policy definition: true
+   
+   b) INSERT policy (admin only):
+      Name: "Allow admin uploads"
+      Allowed operations: INSERT
+      Target roles: authenticated
+      Policy definition: 
+        EXISTS (
+          SELECT 1 FROM users 
+          WHERE id = auth.uid() AND role = 'web_admin'
+        )
+   
+   c) DELETE policy (admin only):
+      Name: "Allow admin deletes"
+      Allowed operations: DELETE  
+      Target roles: authenticated
+      Policy definition:
+        EXISTS (
+          SELECT 1 FROM users 
+          WHERE id = auth.uid() AND role = 'web_admin'
+        )
+*/
+
+-- =====================================================
+-- Flashcards + Spaced Repetition Tables
+-- =====================================================
+
+-- Flashcards table for spaced repetition learning
+CREATE TABLE IF NOT EXISTS flashcards (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  study_space_id UUID REFERENCES study_spaces(id) ON DELETE CASCADE,
+  lesson_id UUID REFERENCES lessons(id) ON DELETE SET NULL,
+  concept TEXT NOT NULL,
+  front TEXT NOT NULL,
+  back TEXT NOT NULL,
+  tags TEXT[] DEFAULT '{}',
+  -- Spaced repetition fields (SM-2 algorithm)
+  ease_factor DECIMAL(3,2) DEFAULT 2.5,
+  interval INTEGER DEFAULT 0,
+  repetitions INTEGER DEFAULT 0,
+  next_review_date TIMESTAMP,
+  last_reviewed_at TIMESTAMP,
+  -- Review history
+  total_reviews INTEGER DEFAULT 0,
+  correct_reviews INTEGER DEFAULT 0,
+  created_at TIMESTAMP DEFAULT NOW(),
+  updated_at TIMESTAMP DEFAULT NOW()
+);
+
+-- Indexes for flashcards
+CREATE INDEX IF NOT EXISTS idx_flashcards_user_id ON flashcards(user_id);
+CREATE INDEX IF NOT EXISTS idx_flashcards_study_space_id ON flashcards(study_space_id);
+CREATE INDEX IF NOT EXISTS idx_flashcards_next_review ON flashcards(user_id, next_review_date);
+CREATE INDEX IF NOT EXISTS idx_flashcards_lesson_id ON flashcards(lesson_id);
+
+-- RLS for flashcards
+ALTER TABLE flashcards ENABLE ROW LEVEL SECURITY;
+
+DROP POLICY IF EXISTS "Users can view own flashcards" ON flashcards;
+CREATE POLICY "Users can view own flashcards" ON flashcards
+  FOR SELECT USING (auth.uid() = user_id);
+
+DROP POLICY IF EXISTS "Users can insert own flashcards" ON flashcards;
+CREATE POLICY "Users can insert own flashcards" ON flashcards
+  FOR INSERT WITH CHECK (auth.uid() = user_id);
+
+DROP POLICY IF EXISTS "Users can update own flashcards" ON flashcards;
+CREATE POLICY "Users can update own flashcards" ON flashcards
+  FOR UPDATE USING (auth.uid() = user_id);
+
+DROP POLICY IF EXISTS "Users can delete own flashcards" ON flashcards;
+CREATE POLICY "Users can delete own flashcards" ON flashcards
+  FOR DELETE USING (auth.uid() = user_id);
+
+-- Concept mastery tracking for spaced repetition
+CREATE TABLE IF NOT EXISTS concept_mastery (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  study_space_id UUID REFERENCES study_spaces(id) ON DELETE CASCADE,
+  concept TEXT NOT NULL,
+  lesson_id UUID REFERENCES lessons(id) ON DELETE SET NULL,
+  mastery_level INTEGER DEFAULT 0,
+  total_flashcards INTEGER DEFAULT 0,
+  mastered_flashcards INTEGER DEFAULT 0,
+  last_studied_at TIMESTAMP,
+  created_at TIMESTAMP DEFAULT NOW(),
+  updated_at TIMESTAMP DEFAULT NOW(),
+  UNIQUE(user_id, concept)
+);
+
+-- Indexes for concept_mastery
+CREATE INDEX IF NOT EXISTS idx_concept_mastery_user_id ON concept_mastery(user_id);
+CREATE INDEX IF NOT EXISTS idx_concept_mastery_study_space_id ON concept_mastery(study_space_id);
+CREATE INDEX IF NOT EXISTS idx_concept_mastery_level ON concept_mastery(user_id, mastery_level);
+
+-- RLS for concept_mastery
+ALTER TABLE concept_mastery ENABLE ROW LEVEL SECURITY;
+
+DROP POLICY IF EXISTS "Users can view own concept mastery" ON concept_mastery;
+CREATE POLICY "Users can view own concept mastery" ON concept_mastery
+  FOR SELECT USING (auth.uid() = user_id);
+
+DROP POLICY IF EXISTS "Users can manage own concept mastery" ON concept_mastery;
+CREATE POLICY "Users can manage own concept mastery" ON concept_mastery
+  FOR ALL USING (auth.uid() = user_id) WITH CHECK (auth.uid() = user_id);
+
+-- =====================================================
+-- Mind Maps Tables
+-- =====================================================
+
+-- Mind maps collection
+CREATE TABLE IF NOT EXISTS mind_maps (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  study_space_id UUID REFERENCES study_spaces(id) ON DELETE CASCADE,
+  title TEXT NOT NULL,
+  description TEXT,
+  topic TEXT,
+  root_node_id UUID,
+  layout_type TEXT DEFAULT 'radial' CHECK (layout_type IN ('radial', 'tree', 'free')),
+  is_public BOOLEAN DEFAULT false,
+  created_at TIMESTAMP DEFAULT NOW(),
+  updated_at TIMESTAMP DEFAULT NOW()
+);
+
+-- Mind map nodes (concepts)
+CREATE TABLE IF NOT EXISTS mind_map_nodes (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  mind_map_id UUID NOT NULL REFERENCES mind_maps(id) ON DELETE CASCADE,
+  concept TEXT NOT NULL,
+  content TEXT,
+  node_type TEXT DEFAULT 'concept' CHECK (node_type IN ('root', 'concept', 'subconcept', 'detail')),
+  x_position DECIMAL(10,2),
+  y_position DECIMAL(10,2),
+  color TEXT DEFAULT '#6366f1',
+  icon TEXT,
+  collapsed BOOLEAN DEFAULT false,
+  mastery_level INTEGER DEFAULT 0,
+  created_at TIMESTAMP DEFAULT NOW(),
+  updated_at TIMESTAMP DEFAULT NOW()
+);
+
+-- Mind map edges (connections between nodes)
+CREATE TABLE IF NOT EXISTS mind_map_edges (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  mind_map_id UUID NOT NULL REFERENCES mind_maps(id) ON DELETE CASCADE,
+  source_node_id UUID NOT NULL REFERENCES mind_map_nodes(id) ON DELETE CASCADE,
+  target_node_id UUID NOT NULL REFERENCES mind_map_nodes(id) ON DELETE CASCADE,
+  label TEXT,
+  line_style TEXT DEFAULT 'solid' CHECK (line_style IN ('solid', 'dashed', 'dotted')),
+  color TEXT DEFAULT '#94a3b8',
+  created_at TIMESTAMP DEFAULT NOW()
+);
+
+-- Indexes for mind maps
+CREATE INDEX IF NOT EXISTS idx_mind_maps_user_id ON mind_maps(user_id);
+CREATE INDEX IF NOT EXISTS idx_mind_maps_study_space_id ON mind_maps(study_space_id);
+CREATE INDEX IF NOT EXISTS idx_mind_map_nodes_mind_map_id ON mind_map_nodes(mind_map_id);
+CREATE INDEX IF NOT EXISTS idx_mind_map_edges_mind_map_id ON mind_map_edges(mind_map_id);
+CREATE INDEX IF NOT EXISTS idx_mind_map_edges_source ON mind_map_edges(source_node_id);
+CREATE INDEX IF NOT EXISTS idx_mind_map_edges_target ON mind_map_edges(target_node_id);
+
+-- RLS for mind maps
+ALTER TABLE mind_maps ENABLE ROW LEVEL SECURITY;
+ALTER TABLE mind_map_nodes ENABLE ROW LEVEL SECURITY;
+ALTER TABLE mind_map_edges ENABLE ROW LEVEL SECURITY;
+
+DROP POLICY IF EXISTS "Users can view own mind maps" ON mind_maps;
+CREATE POLICY "Users can view own mind maps" ON mind_maps
+  FOR SELECT USING (auth.uid() = user_id OR is_public = true);
+
+DROP POLICY IF EXISTS "Users can insert own mind maps" ON mind_maps;
+CREATE POLICY "Users can insert own mind maps" ON mind_maps
+  FOR INSERT WITH CHECK (auth.uid() = user_id);
+
+DROP POLICY IF EXISTS "Users can update own mind maps" ON mind_maps;
+CREATE POLICY "Users can update own mind maps" ON mind_maps
+  FOR UPDATE USING (auth.uid() = user_id);
+
+DROP POLICY IF EXISTS "Users can delete own mind maps" ON mind_maps;
+CREATE POLICY "Users can delete own mind maps" ON mind_maps
+  FOR DELETE USING (auth.uid() = user_id);
+
+-- RLS for mind map nodes
+DROP POLICY IF EXISTS "Users can view mind map nodes" ON mind_map_nodes;
+CREATE POLICY "Users can view mind map nodes" ON mind_map_nodes
+  FOR SELECT USING (
+    EXISTS (
+      SELECT 1 FROM mind_maps WHERE mind_maps.id = mind_map_nodes.mind_map_id
+      AND (mind_maps.user_id = auth.uid() OR mind_maps.is_public = true)
+    )
+  );
+
+DROP POLICY IF EXISTS "Users can manage mind map nodes" ON mind_map_nodes;
+CREATE POLICY "Users can manage mind map nodes" ON mind_map_nodes
+  FOR ALL USING (
+    EXISTS (
+      SELECT 1 FROM mind_maps WHERE mind_maps.id = mind_map_nodes.mind_map_id
+      AND mind_maps.user_id = auth.uid()
+    )
+  );
+
+-- RLS for mind map edges
+DROP POLICY IF EXISTS "Users can view mind map edges" ON mind_map_edges;
+CREATE POLICY "Users can view mind map edges" ON mind_map_edges
+  FOR SELECT USING (
+    EXISTS (
+      SELECT 1 FROM mind_maps WHERE mind_maps.id = mind_map_edges.mind_map_id
+      AND (mind_maps.user_id = auth.uid() OR mind_maps.is_public = true)
+    )
+  );
+
+DROP POLICY IF EXISTS "Users can manage mind map edges" ON mind_map_edges;
+CREATE POLICY "Users can manage mind map edges" ON mind_map_edges
+  FOR ALL USING (
+    EXISTS (
+      SELECT 1 FROM mind_maps WHERE mind_maps.id = mind_map_edges.mind_map_id
+      AND mind_maps.user_id = auth.uid()
+    )
+  );
+
+-- =====================================================
+-- Concept Breakdowns Tables (Bite-sized learning)
+-- =====================================================
+
+-- Concepts extracted from lessons for bite-sized learning
+CREATE TABLE IF NOT EXISTS concepts (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  lesson_id UUID NOT NULL REFERENCES lessons(id) ON DELETE CASCADE,
+  title TEXT NOT NULL,
+  description TEXT NOT NULL,
+  order_index INTEGER DEFAULT 0,
+  estimated_time INTEGER DEFAULT 5, -- minutes
+  difficulty_level INTEGER DEFAULT 1 CHECK (difficulty_level BETWEEN 1 AND 5),
+  key_points TEXT[] DEFAULT '{}',
+  examples TEXT[] DEFAULT '{}',
+  resources JSONB DEFAULT '[]', -- links to videos, articles, etc.
+  created_at TIMESTAMP DEFAULT NOW(),
+  updated_at TIMESTAMP DEFAULT NOW()
+);
+
+-- User progress on individual concepts
+CREATE TABLE IF NOT EXISTS user_concept_progress (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  concept_id UUID NOT NULL REFERENCES concepts(id) ON DELETE CASCADE,
+  lesson_id UUID REFERENCES lessons(id) ON DELETE CASCADE,
+  status TEXT DEFAULT 'not_started' CHECK (status IN ('not_started', 'in_progress', 'completed')),
+  time_spent INTEGER DEFAULT 0, -- minutes
+  notes TEXT,
+  flashcards_created INTEGER DEFAULT 0,
+  last_accessed_at TIMESTAMP,
+  completed_at TIMESTAMP,
+  created_at TIMESTAMP DEFAULT NOW(),
+  UNIQUE(user_id, concept_id)
+);
+
+-- Concept prerequisites (for learning path)
+CREATE TABLE IF NOT EXISTS concept_prerequisites (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  concept_id UUID NOT NULL REFERENCES concepts(id) ON DELETE CASCADE,
+  prerequisite_concept_id UUID NOT NULL REFERENCES concepts(id) ON DELETE CASCADE,
+  created_at TIMESTAMP DEFAULT NOW(),
+  UNIQUE(concept_id, prerequisite_concept_id),
+  CHECK (concept_id != prerequisite_concept_id)
+);
+
+-- Indexes for concepts
+CREATE INDEX IF NOT EXISTS idx_concepts_lesson_id ON concepts(lesson_id);
+CREATE INDEX IF NOT EXISTS idx_concepts_order ON concepts(lesson_id, order_index);
+CREATE INDEX IF NOT EXISTS idx_user_concept_progress_user ON user_concept_progress(user_id);
+CREATE INDEX IF NOT EXISTS idx_user_concept_progress_concept ON user_concept_progress(concept_id);
+CREATE INDEX IF NOT EXISTS idx_user_concept_progress_status ON user_concept_progress(user_id, status);
+
+-- RLS for concepts (managed by lesson ownership)
+ALTER TABLE concepts ENABLE ROW LEVEL SECURITY;
+ALTER TABLE user_concept_progress ENABLE ROW LEVEL SECURITY;
+ALTER TABLE concept_prerequisites ENABLE ROW LEVEL SECURITY;
+
+DROP POLICY IF EXISTS "Anyone can view concepts" ON concepts;
+CREATE POLICY "Anyone can view concepts" ON concepts
+  FOR SELECT USING (true);
+
+DROP POLICY IF EXISTS "Admins can manage concepts" ON concepts;
+CREATE POLICY "Admins can manage concepts" ON concepts
+  FOR ALL USING (
+    EXISTS (
+      SELECT 1 FROM users WHERE users.id = auth.uid() AND users.role = 'admin'
+    )
+  );
+
+-- RLS for user concept progress
+DROP POLICY IF EXISTS "Users can view own concept progress" ON user_concept_progress;
+CREATE POLICY "Users can view own concept progress" ON user_concept_progress
+  FOR SELECT USING (auth.uid() = user_id);
+
+DROP POLICY IF EXISTS "Users can manage own concept progress" ON user_concept_progress;
+CREATE POLICY "Users can manage own concept progress" ON user_concept_progress
+  FOR ALL USING (auth.uid() = user_id) WITH CHECK (auth.uid() = user_id);
+
+-- RLS for concept prerequisites
+DROP POLICY IF EXISTS "Anyone can view prerequisites" ON concept_prerequisites;
+CREATE POLICY "Anyone can view prerequisites" ON concept_prerequisites
+  FOR SELECT USING (true);
+
+DROP POLICY IF EXISTS "Admins can manage prerequisites" ON concept_prerequisites;
+CREATE POLICY "Admins can manage prerequisites" ON concept_prerequisites
+  FOR ALL USING (
+    EXISTS (
+      SELECT 1 FROM users WHERE users.id = auth.uid() AND users.role = 'admin'
+    )
+  );

@@ -5,6 +5,18 @@ import { ProtectedPageWrapper } from '@/components/ProtectedPageWrapper';
 import { useAuth } from '@/contexts/auth';
 import { getAuthHeaders } from '@/lib/auth-headers';
 import { RoadmapRecommendations } from '@/components/RoadmapRecommendations';
+import { 
+  CheckCircle, 
+  XCircle, 
+  ArrowRight, 
+  Trophy, 
+  BookOpen, 
+  Clock, 
+  Target, 
+  Filter,
+  ArrowLeft,
+  Check
+} from 'lucide-react';
 
 interface Question {
   question: string;
@@ -109,12 +121,15 @@ function QuizContent() {
   if (selectedQuiz && showResults) {
     const score = calculateScore();
     return (
-      <div className="min-h-screen bg-gradient-to-br from-green-50 to-blue-50 p-4">
+      <div className="min-h-screen bg-gradient-to-br from-slate-50 via-indigo-50 to-purple-50 p-4">
         <div className="max-w-2xl mx-auto">
-          <div className="bg-white rounded-lg shadow-lg p-8 text-center">
-            <h1 className="text-4xl font-bold text-gray-800 mb-4">Bài thi hoàn thành!</h1>
+          <div className="bg-white rounded-2xl shadow-sm border border-slate-200 p-8 text-center">
+            <div className="p-4 bg-gradient-to-br from-green-100 to-emerald-100 rounded-xl w-fit mx-auto mb-6">
+              <Trophy className="w-12 h-12 text-green-600" />
+            </div>
+            <h1 className="text-4xl font-bold text-slate-800 mb-4">Bài thi hoàn thành!</h1>
             <div className="text-6xl font-bold text-green-500 mb-4">{score}%</div>
-            <p className="text-xl text-gray-600 mb-8">
+            <p className="text-xl text-slate-600 mb-8">
               Bạn đã trả lời đúng {answers.filter((a, idx) => a === selectedQuiz.questions[idx].correctAnswer).length} trên {selectedQuiz.questions.length} câu hỏi.
             </p>
             <button
@@ -122,9 +137,10 @@ function QuizContent() {
                 setSelectedQuiz(null);
                 fetchQuizzes();
               }}
-              className="bg-indigo-600 text-white px-8 py-3 rounded-lg hover:bg-indigo-700"
+              className="px-8 py-3 bg-gradient-to-r from-indigo-500 to-purple-600 text-white rounded-xl hover:shadow-lg transition-all duration-200 font-semibold flex items-center justify-center gap-2 mx-auto"
             >
-              Quay lại danh sách bài thi
+              <ArrowLeft className="w-5 h-5" />
+              <span>Quay lại danh sách bài thi</span>
             </button>
           </div>
         </div>
@@ -135,44 +151,47 @@ function QuizContent() {
   if (selectedQuiz && !showResults) {
     const question = selectedQuiz.questions[currentQuestion];
     return (
-      <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-50 p-4">
+      <div className="min-h-screen bg-gradient-to-br from-slate-50 via-indigo-50 to-purple-50 p-4">
         <div className="max-w-2xl mx-auto">
           <div className="mb-4 flex justify-between items-center">
-            <h1 className="text-2xl font-bold text-gray-800">{selectedQuiz.title}</h1>
-            <span className="text-gray-600">
-              Câu {currentQuestion + 1}/{selectedQuiz.questions.length}
+            <h1 className="text-2xl font-bold text-slate-800">{selectedQuiz.title}</h1>
+            <span className="text-slate-600 flex items-center gap-1">
+              <Clock className="w-4 h-4" />
+              <span>Câu {currentQuestion + 1}/{selectedQuiz.questions.length}</span>
             </span>
           </div>
 
-          <div className="w-full bg-gray-200 rounded-full h-2 mb-8">
+          <div className="w-full bg-slate-200 rounded-full h-2 mb-8">
             <div
-              className="bg-indigo-600 h-2 rounded-full transition-all"
+              className="bg-gradient-to-r from-indigo-500 to-purple-600 h-2 rounded-full transition-all"
               style={{ width: `${((currentQuestion + 1) / selectedQuiz.questions.length) * 100}%` }}
             ></div>
           </div>
 
-          <div className="bg-white rounded-lg shadow-lg p-8">
-            <h2 className="text-xl font-semibold text-gray-800 mb-6">{question.question}</h2>
+          <div className="bg-white rounded-2xl shadow-sm border border-slate-200 p-8">
+            <h2 className="text-xl font-semibold text-slate-800 mb-6">{question.question}</h2>
 
             <div className="space-y-3 mb-8">
               {question.options.map((option, idx) => (
                 <button
                   key={idx}
                   onClick={() => handleAnswerSelect(idx)}
-                  className={`w-full text-left p-4 rounded-lg border-2 transition ${
+                  className={`w-full text-left p-4 rounded-xl border-2 transition-all duration-200 ${
                     answers[currentQuestion] === idx
-                      ? 'border-indigo-600 bg-indigo-50'
-                      : 'border-gray-200 hover:border-indigo-300'
+                      ? 'border-indigo-500 bg-gradient-to-r from-indigo-50 to-purple-50'
+                      : 'border-slate-200 hover:border-indigo-300 hover:bg-slate-50'
                   }`}
                 >
                   <div className="flex items-center">
                     <div
-                      className={`w-5 h-5 rounded-full border-2 mr-3 ${
+                      className={`w-5 h-5 rounded-full border-2 mr-3 flex items-center justify-center ${
                         answers[currentQuestion] === idx
-                          ? 'border-indigo-600 bg-indigo-600'
-                          : 'border-gray-400'
+                          ? 'border-indigo-500 bg-indigo-500'
+                          : 'border-slate-400'
                       }`}
-                    ></div>
+                    >
+                      {answers[currentQuestion] === idx && <Check className="w-3 h-3 text-white" />}
+                    </div>
                     {option}
                   </div>
                 </button>
@@ -182,9 +201,10 @@ function QuizContent() {
             <button
               onClick={handleNextQuestion}
               disabled={answers[currentQuestion] === -1}
-              className="w-full bg-indigo-600 text-white py-3 rounded-lg hover:bg-indigo-700 disabled:bg-gray-400"
+              className="w-full px-4 py-3 bg-gradient-to-r from-indigo-500 to-purple-600 text-white rounded-xl hover:shadow-lg transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed font-semibold flex items-center justify-center gap-2"
             >
-              {currentQuestion === selectedQuiz.questions.length - 1 ? 'Hoàn thành bài thi' : 'Câu tiếp theo'}
+              <span>{currentQuestion === selectedQuiz.questions.length - 1 ? 'Hoàn thành bài thi' : 'Câu tiếp theo'}</span>
+              <ArrowRight className="w-5 h-5" />
             </button>
           </div>
         </div>
@@ -193,62 +213,86 @@ function QuizContent() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 p-4">
+    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-indigo-50 to-purple-50 p-4">
       <div className="max-w-6xl mx-auto">
-        <h1 className="text-4xl font-bold text-gray-800 mb-8">Nền tảng bài trắc nghiệm</h1>
+        <div className="flex items-center gap-3 mb-8">
+          <div className="p-3 bg-gradient-to-br from-indigo-500 to-purple-600 rounded-xl">
+            <BookOpen className="w-8 h-8 text-white" />
+          </div>
+          <h1 className="text-4xl font-bold text-slate-800">Nền tảng bài trắc nghiệm</h1>
+        </div>
         <div className="mb-8">
           <RoadmapRecommendations compact />
         </div>
 
         {/* Topic Filter */}
-        <div className="mb-8 flex gap-2 flex-wrap">
-          {['Tất cả', 'Toán học', 'Khoa học', 'Ngôn ngữ', 'Lịch sử'].map((t) => (
-            <button
-              key={t}
-              onClick={() => setTopic(t)}
-              className={`px-4 py-2 rounded-lg font-semibold transition ${
-                topic === t
-                  ? 'bg-indigo-600 text-white'
-                  : 'bg-white text-gray-700 hover:bg-gray-100'
-              }`}
-            >
-              {t}
-            </button>
-          ))}
+        <div className="mb-8">
+          <p className="text-sm font-semibold text-slate-700 mb-3 flex items-center gap-2">
+            <Filter className="w-4 h-4" />
+            <span>Chọn chủ đề</span>
+          </p>
+          <div className="flex gap-2 flex-wrap">
+            {['Tất cả', 'Toán học', 'Khoa học', 'Ngôn ngữ', 'Lịch sử'].map((t) => (
+              <button
+                key={t}
+                onClick={() => setTopic(t)}
+                className={`px-4 py-2 rounded-xl font-semibold transition-all duration-200 ${
+                  topic === t
+                    ? 'bg-gradient-to-r from-indigo-500 to-purple-600 text-white shadow-md'
+                    : 'bg-white text-slate-700 border border-slate-300 hover:bg-slate-50'
+                }`}
+              >
+                {t}
+              </button>
+            ))}
+          </div>
         </div>
 
         {/* Quizzes Grid */}
         {quizzes.length === 0 ? (
-          <div className="bg-white rounded-lg shadow-lg p-12 text-center">
-            <p className="text-lg text-gray-600">Không có bài trắc nghiệm. Vui lòng kiểm tra lại sau!</p>
+          <div className="bg-white rounded-2xl shadow-sm border border-slate-200 p-12 text-center">
+            <div className="p-4 bg-slate-100 rounded-xl w-fit mx-auto mb-4">
+              <BookOpen className="w-12 h-12 text-slate-400" />
+            </div>
+            <p className="text-lg text-slate-600">Không có bài trắc nghiệm. Vui lòng kiểm tra lại sau!</p>
           </div>
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             {quizzes.map((quiz) => (
               <div
                 key={quiz.id}
-                className="bg-white rounded-lg shadow-lg hover:shadow-xl transition overflow-hidden"
+                className="bg-white rounded-2xl shadow-sm border border-slate-200 hover:shadow-lg transition-all duration-200 overflow-hidden group"
               >
-                <div className="bg-gradient-to-r from-indigo-400 to-blue-400 h-32"></div>
+                <div className="bg-gradient-to-r from-indigo-400 to-purple-400 h-32 group-hover:from-indigo-500 group-hover:to-purple-500 transition-all"></div>
                 <div className="p-6">
-                  <h3 className="text-xl font-bold text-gray-800 mb-2">{quiz.title}</h3>
-                  <p className="text-gray-600 mb-4 line-clamp-2">{quiz.description}</p>
+                  <h3 className="text-xl font-bold text-slate-800 mb-2">{quiz.title}</h3>
+                  <p className="text-slate-600 mb-4 line-clamp-2">{quiz.description}</p>
                   <div className="flex justify-between items-center mb-4">
-                    <span className="text-sm bg-blue-100 text-blue-800 px-3 py-1 rounded">
+                    <span className="text-sm bg-indigo-100 text-indigo-800 px-3 py-1 rounded-full">
                       {quiz.topic}
                     </span>
-                    <span className="text-sm bg-yellow-100 text-yellow-800 px-3 py-1 rounded">
+                    <span className={`text-sm px-3 py-1 rounded-full ${
+                      quiz.difficulty === 'easy' 
+                        ? 'bg-green-100 text-green-800' 
+                        : quiz.difficulty === 'medium' 
+                        ? 'bg-yellow-100 text-yellow-800' 
+                        : 'bg-red-100 text-red-800'
+                    }`}>
                       {quiz.difficulty === 'easy' ? 'Dễ' : quiz.difficulty === 'medium' ? 'Trung Bình' : 'Khó'}
                     </span>
                   </div>
-                  <p className="text-sm text-gray-500 mb-4">
-                    {quiz.questions.length} câu hỏi
-                  </p>
+                  <div className="flex items-center justify-between mb-4">
+                    <p className="text-sm text-slate-500 flex items-center gap-1">
+                      <Target className="w-4 h-4" />
+                      <span>{quiz.questions.length} câu hỏi</span>
+                    </p>
+                  </div>
                   <button
                     onClick={() => handleSelectQuiz(quiz)}
-                    className="w-full bg-indigo-600 text-white py-2 rounded-lg hover:bg-indigo-700 font-semibold"
+                    className="w-full px-4 py-3 bg-gradient-to-r from-indigo-500 to-purple-600 text-white rounded-xl hover:shadow-lg transition-all duration-200 font-semibold flex items-center justify-center gap-2"
                   >
-                    Bắt đầu bài thi
+                    <span>Bắt đầu bài thi</span>
+                    <ArrowRight className="w-5 h-5" />
                   </button>
                 </div>
               </div>

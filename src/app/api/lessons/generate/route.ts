@@ -1,7 +1,6 @@
 import { NextResponse } from 'next/server';
-import { generateLessonWithRAG, getLessonContext } from '@/lib/rag';
+import { generateLessonWithRAG } from '@/lib/rag';
 import { createServiceSupabase } from '@/lib/db/server';
-import genAI from '@/lib/gemini';
 import { getAuth } from '@/lib/auth-headers';
 
 export async function POST(request: Request) {
@@ -18,7 +17,6 @@ export async function POST(request: Request) {
       gradeLevel, 
       subject, 
       useRAG = true,
-      documentIds, // Optional: filter by specific documents
     } = body;
 
     if (!topic || !gradeLevel || !subject) {
@@ -36,22 +34,32 @@ export async function POST(request: Request) {
     };
     let sources: Awaited<ReturnType<typeof generateLessonWithRAG>>['sources'] | null = null;
 
+    console.log(`[Lesson Generation] Starting: topic="${topic}", grade=${gradeLevel}, subject=${subject}, useRAG=${useRAG}`);
+
     if (useRAG) {
       try {
+        console.log('[Lesson Generation] Searching documents with RAG...');
         // Try to generate with RAG
         const result = await generateLessonWithRAG(topic, gradeLevel, subject, {
           matchCount: 5,
         });
+        console.log(`[Lesson Generation] Found ${result.sources.length} relevant chunks`);
+        console.log('[Lesson Generation] Generating lesson with AI...');
         content = result.content;
         sources = result.sources;
+        console.log('[Lesson Generation] RAG generation completed');
       } catch (ragError) {
-        console.warn('RAG generation failed, falling back to direct generation:', ragError);
+        console.warn('[Lesson Generation] RAG failed, falling back to direct generation:', ragError);
         // Fall back to direct generation
+        console.log('[Lesson Generation] Generating lesson directly (no RAG)...');
         content = await generateLessonDirect(topic, gradeLevel, subject);
+        console.log('[Lesson Generation] Direct generation completed');
       }
     } else {
       // Direct generation without RAG
+      console.log('[Lesson Generation] Generating lesson directly (RAG disabled)...');
       content = await generateLessonDirect(topic, gradeLevel, subject);
+      console.log('[Lesson Generation] Direct generation completed');
     }
 
     return NextResponse.json({
@@ -84,8 +92,8 @@ async function generateLessonDirect(
   examples: string[];
   exercises: string[];
 }> {
-  const model = genAI.getGenerativeModel({ model: 'gemini-2.0-flash' });
-
+  console.log(`[Direct Generation] Generating lesson for: ${topic}, class ${gradeLevel}`);
+  
   const prompt = `Bạn là giáo viên chuyên nghiệp dạy môn ${subject} tại Việt Nam.
 
 Nhiệm vụ: Tạo nội dung bài học cho chủ đề "${topic}" dành cho học sinh lớp ${gradeLevel}.
@@ -102,10 +110,20 @@ Yêu cầu:
 - Ngôn ngữ: Tiếng Việt
 - Cấp độ: Phù hợp lớp ${gradeLevel}
 - Nội dung: Theo chương trình giáo dục phổ thông Việt Nam
-- Phong cách: Dễ hiểu, có ví dụ thực tế`;
+- Phong cách: Dễ hiểu, có ví dụ thực tế
 
+Chỉ trả về JSON, không có text khác.`;
+
+  console.log('[Direct Generation] Calling Gemini API...');
+  // eslint-disable-next-line @typescript-eslint/no-var-requires
+  const { GoogleGenerativeAI } = require('@google/generative-ai');
+  const genAI = new GoogleGenerativeAI(process.env.GOOGLE_GEMINI_API_KEY);
+  const model = genAI.getGenerativeModel({ model: 'gemini-2.5-flash-lite' });
+  
   const result = await model.generateContent(prompt);
   const response = result.response.text();
+  
+  console.log('[Direct Generation] Parsing response...');
 
   // Parse JSON from response
   const jsonMatch = response.match(/\{[\s\S]*\}/);

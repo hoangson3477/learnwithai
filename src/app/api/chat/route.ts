@@ -21,7 +21,7 @@ export async function POST(request: NextRequest) {
 
     // Call Google Gemini API
     const model = genAI.getGenerativeModel({ 
-      model: 'gemini-2.5-flash',
+      model: 'gemini-2.5-flash-lite',
       systemInstruction: `You are a friendly English tutor here to help students learn. Respond in Vietnamese. Keep responses short, encouraging, and use emojis! Focus on educational content for the topic: ${topic}`
     });
 
