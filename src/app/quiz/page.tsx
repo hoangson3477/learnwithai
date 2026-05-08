@@ -15,8 +15,11 @@ import {
   Target, 
   Filter,
   ArrowLeft,
-  Check
+  Check,
+  Eye,
+  RotateCcw
 } from 'lucide-react';
+import { logger } from '@/lib/logger';
 
 interface Question {
   question: string;
@@ -43,6 +46,7 @@ function QuizContent() {
   const [showResults, setShowResults] = useState(false);
   const [topic, setTopic] = useState('Tất cả');
   const [hasSubmittedResult, setHasSubmittedResult] = useState(false);
+  const [showReview, setShowReview] = useState(false);
 
   const fetchQuizzes = useCallback(async () => {
     try {
@@ -112,7 +116,7 @@ function QuizContent() {
         });
         setHasSubmittedResult(true);
       } catch (error) {
-        console.error('Error saving quiz submission:', error);
+        logger.error('Error saving quiz submission:', error);
       }
     };
     saveSubmission();
@@ -122,27 +126,116 @@ function QuizContent() {
     const score = calculateScore();
     return (
       <div className="min-h-screen bg-gradient-to-br from-slate-50 via-indigo-50 to-purple-50 p-4">
-        <div className="max-w-2xl mx-auto">
-          <div className="bg-white rounded-2xl shadow-sm border border-slate-200 p-8 text-center">
-            <div className="p-4 bg-gradient-to-br from-green-100 to-emerald-100 rounded-xl w-fit mx-auto mb-6">
-              <Trophy className="w-12 h-12 text-green-600" />
+        <div className="max-w-3xl mx-auto">
+          {!showReview ? (
+            <div className="bg-white rounded-2xl shadow-sm border border-slate-200 p-8 text-center">
+              <div className="p-4 bg-gradient-to-br from-green-100 to-emerald-100 rounded-xl w-fit mx-auto mb-6">
+                <Trophy className="w-12 h-12 text-green-600" />
+              </div>
+              <h1 className="text-4xl font-bold text-slate-800 mb-4">Bài thi hoàn thành!</h1>
+              <div className="text-6xl font-bold text-green-500 mb-4">{score}%</div>
+              <p className="text-xl text-slate-600 mb-2">
+                Bạn đã trả lời đúng {answers.filter((a, idx) => a === selectedQuiz.questions[idx].correctAnswer).length} trên {selectedQuiz.questions.length} câu hỏi.
+              </p>
+              <p className="text-sm text-slate-500 mb-8">
+                {score >= 80 ? '🌟 Xuất sắc! Kiến thức vững vàng' : score >= 60 ? '👍 Khá tốt! Cần ôn thêm một chút' : '📚 Cần ôn tập thêm để cải thiện'}
+              </p>
+              
+              <div className="flex gap-3 justify-center">
+                <button
+                  onClick={() => setShowReview(true)}
+                  className="px-6 py-3 bg-white border-2 border-indigo-200 text-indigo-600 rounded-xl hover:bg-indigo-50 transition-all duration-200 font-semibold flex items-center gap-2"
+                >
+                  <Eye className="w-5 h-5" />
+                  <span>Xem lại đáp án</span>
+                </button>
+                <button
+                  onClick={() => {
+                    setCurrentQuestion(0);
+                    setAnswers([]);
+                    setShowResults(false);
+                    setHasSubmittedResult(false);
+                    setShowReview(false);
+                  }}
+                  className="px-6 py-3 bg-white border-2 border-green-200 text-green-600 rounded-xl hover:bg-green-50 transition-all duration-200 font-semibold flex items-center gap-2"
+                >
+                  <RotateCcw className="w-5 h-5" />
+                  <span>Làm lại</span>
+                </button>
+                <button
+                  onClick={() => {
+                    setSelectedQuiz(null);
+                    setShowReview(false);
+                    fetchQuizzes();
+                  }}
+                  className="px-6 py-3 bg-gradient-to-r from-indigo-500 to-purple-600 text-white rounded-xl hover:shadow-lg transition-all duration-200 font-semibold flex items-center gap-2"
+                >
+                  <ArrowLeft className="w-5 h-5" />
+                  <span>Quay lại</span>
+                </button>
+              </div>
             </div>
-            <h1 className="text-4xl font-bold text-slate-800 mb-4">Bài thi hoàn thành!</h1>
-            <div className="text-6xl font-bold text-green-500 mb-4">{score}%</div>
-            <p className="text-xl text-slate-600 mb-8">
-              Bạn đã trả lời đúng {answers.filter((a, idx) => a === selectedQuiz.questions[idx].correctAnswer).length} trên {selectedQuiz.questions.length} câu hỏi.
-            </p>
-            <button
-              onClick={() => {
-                setSelectedQuiz(null);
-                fetchQuizzes();
-              }}
-              className="px-8 py-3 bg-gradient-to-r from-indigo-500 to-purple-600 text-white rounded-xl hover:shadow-lg transition-all duration-200 font-semibold flex items-center justify-center gap-2 mx-auto"
-            >
-              <ArrowLeft className="w-5 h-5" />
-              <span>Quay lại danh sách bài thi</span>
-            </button>
-          </div>
+          ) : (
+            <div className="space-y-4">
+              <div className="flex items-center justify-between">
+                <h2 className="text-2xl font-bold text-slate-800">Xem lại đáp án</h2>
+                <button
+                  onClick={() => setShowReview(false)}
+                  className="px-4 py-2 text-slate-600 hover:bg-slate-100 rounded-lg transition-colors"
+                >
+                  Quay lại kết quả
+                </button>
+              </div>
+              
+              {selectedQuiz.questions.map((q, idx) => {
+                const userAnswer = answers[idx];
+                const isCorrect = userAnswer === q.correctAnswer;
+                
+                return (
+                  <div key={idx} className={`bg-white rounded-2xl shadow-sm border p-6 ${isCorrect ? 'border-green-200' : 'border-red-200'}`}>
+                    <div className="flex items-start gap-3 mb-4">
+                      <div className={`p-2 rounded-lg ${isCorrect ? 'bg-green-100 text-green-600' : 'bg-red-100 text-red-600'}`}>
+                        {isCorrect ? <CheckCircle className="w-5 h-5" /> : <XCircle className="w-5 h-5" />}
+                      </div>
+                      <div>
+                        <span className="text-sm text-slate-500">Câu {idx + 1}</span>
+                        <h3 className="font-semibold text-slate-800">{q.question}</h3>
+                      </div>
+                    </div>
+                    
+                    <div className="space-y-2 ml-11">
+                      {q.options.map((opt, optIdx) => (
+                        <div
+                          key={optIdx}
+                          className={`p-3 rounded-lg ${
+                            optIdx === q.correctAnswer
+                              ? 'bg-green-100 text-green-700 border border-green-300'
+                              : optIdx === userAnswer && !isCorrect
+                              ? 'bg-red-100 text-red-700 border border-red-300'
+                              : 'bg-slate-50 text-slate-600'
+                          }`}
+                        >
+                          <div className="flex items-center gap-2">
+                            <span className="font-medium">{String.fromCharCode(65 + optIdx)}.</span>
+                            <span>{opt}</span>
+                            {optIdx === q.correctAnswer && <CheckCircle className="w-4 h-4 ml-auto text-green-600" />}
+                            {optIdx === userAnswer && !isCorrect && <XCircle className="w-4 h-4 ml-auto text-red-600" />}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                    
+                    {q.explanation && (
+                      <div className="mt-4 ml-11 p-4 bg-indigo-50 rounded-xl text-sm text-indigo-800">
+                        <span className="font-semibold">Giải thích: </span>
+                        {q.explanation}
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          )}
         </div>
       </div>
     );

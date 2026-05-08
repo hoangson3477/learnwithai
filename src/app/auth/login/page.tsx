@@ -4,6 +4,7 @@ import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { useAuth } from '@/contexts/auth';
+import { SocialLogin } from '@/components/SocialLogin';
 import { 
   LogIn, 
   Mail, 
@@ -96,9 +97,14 @@ export default function LoginPage() {
 
           {/* Mật khẩu */}
           <div>
-            <label htmlFor="password" className="block text-sm font-medium text-slate-700 mb-1.5">
-              Mật khẩu
-            </label>
+            <div className="flex items-center justify-between mb-1.5">
+              <label htmlFor="password" className="block text-sm font-medium text-slate-700">
+                Mật khẩu
+              </label>
+              <Link href="/auth/forgot-password" className="text-sm text-indigo-600 hover:text-indigo-700 font-medium">
+                Quên mật khẩu?
+              </Link>
+            </div>
             <div className="relative">
               <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400" />
               <input
@@ -132,6 +138,9 @@ export default function LoginPage() {
               </>
             )}
           </button>
+
+          {/* Social Login */}
+          <SocialLogin redirectTo="/dashboard" />
         </form>
 
         <p className="text-center text-slate-600 mt-6">

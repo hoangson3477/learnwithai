@@ -6,6 +6,7 @@ import { useAuth } from '@/contexts/auth';
 import { getAuthHeaders } from '@/lib/auth-headers';
 import { RoadmapRecommendations } from '@/components/RoadmapRecommendations';
 import { ChatHistory } from '@/components/ChatHistory';
+import { TypingIndicator } from '@/components/TypingIndicator';
 import { BookOpen, Send, Loader2, MessageCircle, Menu, X } from 'lucide-react';
 import supabase from '@/lib/db/supabase';
 
@@ -200,6 +201,11 @@ function ChatContent() {
                 </div>
               </div>
             ))}
+            {loading && (
+              <div className="flex justify-start">
+                <TypingIndicator />
+              </div>
+            )}
             <div ref={messagesEndRef} />
           </div>
         </div>

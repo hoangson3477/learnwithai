@@ -5,6 +5,7 @@ import { useParams } from 'next/navigation';
 import { ProtectedPageWrapper } from '@/components/ProtectedPageWrapper';
 import { useAuth } from '@/contexts/auth';
 import supabase from '@/lib/db/supabase';
+import { logger } from '@/lib/logger';
 import { RoadmapRecommendations } from '@/components/RoadmapRecommendations';
 import { getAuthHeaders } from '@/lib/auth-headers';
 import Link from 'next/link';
@@ -116,7 +117,7 @@ function LessonContent() {
         quiz_completed: newProgress.quiz_completed,
       }, { onConflict: 'user_id,lesson_id' });
     } catch (error) {
-      console.error('Error saving lesson progress:', error);
+      logger.error('Error saving lesson progress:', error);
     }
   }, [user?.id, lessonId, lessonProgress]);
 
@@ -143,7 +144,7 @@ function LessonContent() {
           });
         }
       } catch (error) {
-        console.log('No existing progress found');
+        // No existing progress - silent in production
       }
     };
     
@@ -186,7 +187,7 @@ function LessonContent() {
           setAnswers(new Array(normalized.length).fill(-1));
         }
       } catch (error) {
-        console.error('Error loading lesson detail:', error);
+        logger.error('Error loading lesson detail:', error);
         setLessonError(error instanceof Error ? error.message : 'Không thể tải bài học');
       } finally {
         setLessonLoading(false);
@@ -237,7 +238,7 @@ function LessonContent() {
         { role: 'assistant', content: assistantContent },
       ]);
     } catch (error: unknown) {
-      console.error('Error:', error);
+      logger.error('Chat error:', error);
       setMessages((prev) => [
         ...prev,
         {
@@ -341,7 +342,7 @@ function LessonContent() {
         }
       }
     } catch (error) {
-      console.error('Error saving progress:', error);
+      logger.error('Error saving progress:', error);
     } finally {
       setQuizLoading(false);
       setStep('complete');
@@ -519,10 +520,10 @@ function LessonContent() {
               lessonId={lessonId}
               userId={user?.id || ''}
               onComplete={(conceptId) => {
-                console.log('Completed concept:', conceptId);
+                logger.info('Completed concept:', conceptId);
               }}
               onCreateFlashcards={(conceptId) => {
-                console.log('Created flashcards for concept:', conceptId);
+                logger.info('Created flashcards for concept:', conceptId);
               }}
             />
             <button

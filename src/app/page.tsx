@@ -2,6 +2,7 @@
 
 import Link from 'next/link';
 import { useAuth } from '@/contexts/auth';
+import { FadeInOnScroll } from '@/components/PageTransition';
 import { 
   GraduationCap, 
   Zap, 
@@ -75,45 +76,53 @@ export default function Home() {
             Khám phá những tính năng độc đáo giúp việc học tập trở nên thú vị và hiệu quả hơn
           </p>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-            <div className="p-6 bg-gradient-to-br from-indigo-50 to-purple-50 rounded-2xl border border-indigo-100 hover:shadow-lg transition-all duration-200 group">
-              <div className="p-3 bg-gradient-to-br from-indigo-500 to-purple-600 rounded-xl w-fit mb-4 group-hover:scale-110 transition-transform">
-                <Zap className="w-6 h-6 text-white" />
+            <FadeInOnScroll delay={0}>
+              <div className="p-6 bg-gradient-to-br from-indigo-50 to-purple-50 rounded-2xl border border-indigo-100 hover:shadow-lg transition-all duration-200 group card-hover">
+                <div className="p-3 bg-gradient-to-br from-indigo-500 to-purple-600 rounded-xl w-fit mb-4 group-hover:scale-110 transition-transform">
+                  <Zap className="w-6 h-6 text-white" />
+                </div>
+                <h3 className="text-xl font-bold text-slate-800 mb-2">Học với AI</h3>
+                <p className="text-slate-600 text-sm leading-relaxed">
+                  Trợ lý AI cá nhân hóa giúp bạn học theo tốc độ của riêng mình
+                </p>
               </div>
-              <h3 className="text-xl font-bold text-slate-800 mb-2">Học với AI</h3>
-              <p className="text-slate-600 text-sm leading-relaxed">
-                Trợ lý AI cá nhân hóa giúp bạn học theo tốc độ của riêng mình
-              </p>
-            </div>
+            </FadeInOnScroll>
 
-            <div className="p-6 bg-gradient-to-br from-blue-50 to-cyan-50 rounded-2xl border border-blue-100 hover:shadow-lg transition-all duration-200 group">
-              <div className="p-3 bg-gradient-to-br from-blue-500 to-cyan-600 rounded-xl w-fit mb-4 group-hover:scale-110 transition-transform">
-                <Gamepad2 className="w-6 h-6 text-white" />
+            <FadeInOnScroll delay={100}>
+              <div className="p-6 bg-gradient-to-br from-blue-50 to-cyan-50 rounded-2xl border border-blue-100 hover:shadow-lg transition-all duration-200 group card-hover">
+                <div className="p-3 bg-gradient-to-br from-blue-500 to-cyan-600 rounded-xl w-fit mb-4 group-hover:scale-110 transition-transform">
+                  <Gamepad2 className="w-6 h-6 text-white" />
+                </div>
+                <h3 className="text-xl font-bold text-slate-800 mb-2">Gamification</h3>
+                <p className="text-slate-600 text-sm leading-relaxed">
+                  Giành điểm, leo cấp và duy trì streak để giữ động lực
+                </p>
               </div>
-              <h3 className="text-xl font-bold text-slate-800 mb-2">Gamification</h3>
-              <p className="text-slate-600 text-sm leading-relaxed">
-                Giành điểm, leo cấp và duy trì streak để giữ động lực
-              </p>
-            </div>
+            </FadeInOnScroll>
 
-            <div className="p-6 bg-gradient-to-br from-purple-50 to-pink-50 rounded-2xl border border-purple-100 hover:shadow-lg transition-all duration-200 group">
-              <div className="p-3 bg-gradient-to-br from-purple-500 to-pink-600 rounded-xl w-fit mb-4 group-hover:scale-110 transition-transform">
-                <Target className="w-6 h-6 text-white" />
+            <FadeInOnScroll delay={200}>
+              <div className="p-6 bg-gradient-to-br from-purple-50 to-pink-50 rounded-2xl border border-purple-100 hover:shadow-lg transition-all duration-200 group card-hover">
+                <div className="p-3 bg-gradient-to-br from-purple-500 to-pink-600 rounded-xl w-fit mb-4 group-hover:scale-110 transition-transform">
+                  <Target className="w-6 h-6 text-white" />
+                </div>
+                <h3 className="text-xl font-bold text-slate-800 mb-2">Hiệu quả</h3>
+                <p className="text-slate-600 text-sm leading-relaxed">
+                  Bài học ngắn, dễ nhớ, được thiết kế khoa học để tối ưu hóa học tập
+                </p>
               </div>
-              <h3 className="text-xl font-bold text-slate-800 mb-2">Hiệu quả</h3>
-              <p className="text-slate-600 text-sm leading-relaxed">
-                Bài học ngắn, dễ nhớ, được thiết kế khoa học để tối ưu hóa học tập
-              </p>
-            </div>
+            </FadeInOnScroll>
 
-            <div className="p-6 bg-gradient-to-br from-orange-50 to-yellow-50 rounded-2xl border border-orange-100 hover:shadow-lg transition-all duration-200 group">
-              <div className="p-3 bg-gradient-to-br from-orange-500 to-yellow-600 rounded-xl w-fit mb-4 group-hover:scale-110 transition-transform">
-                <TrendingUp className="w-6 h-6 text-white" />
+            <FadeInOnScroll delay={300}>
+              <div className="p-6 bg-gradient-to-br from-orange-50 to-yellow-50 rounded-2xl border border-orange-100 hover:shadow-lg transition-all duration-200 group card-hover">
+                <div className="p-3 bg-gradient-to-br from-orange-500 to-yellow-600 rounded-xl w-fit mb-4 group-hover:scale-110 transition-transform">
+                  <TrendingUp className="w-6 h-6 text-white" />
+                </div>
+                <h3 className="text-xl font-bold text-slate-800 mb-2">Tiến độ</h3>
+                <p className="text-slate-600 text-sm leading-relaxed">
+                  Theo dõi tiến độ học tập với dashboard chi tiết và thống kê
+                </p>
               </div>
-              <h3 className="text-xl font-bold text-slate-800 mb-2">Tiến độ</h3>
-              <p className="text-slate-600 text-sm leading-relaxed">
-                Theo dõi tiến độ học tập với dashboard chi tiết và thống kê
-              </p>
-            </div>
+            </FadeInOnScroll>
           </div>
         </div>
       </section>

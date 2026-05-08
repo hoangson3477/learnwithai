@@ -61,3 +61,81 @@ button {
     @apply bg-white rounded-lg shadow-md p-4 hover:shadow-lg transition-shadow;
   }
 }
+
+/* Stagger animation for children */
+.stagger-children > * {
+  animation: staggerFadeIn 0.5s ease-out forwards;
+  animation-delay: calc(var(--stagger-delay, 50ms) * var(--child-index, 0));
+  opacity: 0;
+}
+
+.stagger-children > *:nth-child(1) { --child-index: 0; }
+.stagger-children > *:nth-child(2) { --child-index: 1; }
+.stagger-children > *:nth-child(3) { --child-index: 2; }
+.stagger-children > *:nth-child(4) { --child-index: 3; }
+.stagger-children > *:nth-child(5) { --child-index: 4; }
+.stagger-children > *:nth-child(6) { --child-index: 5; }
+.stagger-children > *:nth-child(7) { --child-index: 6; }
+.stagger-children > *:nth-child(8) { --child-index: 7; }
+.stagger-children > *:nth-child(9) { --child-index: 8; }
+.stagger-children > *:nth-child(10) { --child-index: 9; }
+.stagger-children > *:nth-child(11) { --child-index: 10; }
+.stagger-children > *:nth-child(12) { --child-index: 11; }
+
+@keyframes staggerFadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* Page transition animations */
+.page-transition-enter {
+  opacity: 0;
+  transform: translateY(8px);
+}
+
+.page-transition-enter-active {
+  opacity: 1;
+  transform: translateY(0);
+  transition: opacity 300ms ease-out, transform 300ms ease-out;
+}
+
+.page-transition-exit {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+.page-transition-exit-active {
+  opacity: 0;
+  transform: translateY(-8px);
+  transition: opacity 200ms ease-in, transform 200ms ease-in;
+}
+
+/* Skeleton pulse animation enhancement */
+@keyframes skeleton-pulse {
+  0%, 100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.5;
+  }
+}
+
+.animate-skeleton {
+  animation: skeleton-pulse 2s ease-in-out infinite;
+}
+
+/* Card hover lift effect */
+.card-hover {
+  transition: transform 0.2s ease-out, box-shadow 0.2s ease-out;
+}
+
+.card-hover:hover {
+  transform: translateY(-4px);
+  box-shadow: 0 12px 24px -8px rgba(0, 0, 0, 0.15);
+}

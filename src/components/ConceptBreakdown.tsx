@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
+import { logger } from '@/lib/logger';
 import {
   Lightbulb,
   CheckCircle2,
@@ -76,7 +77,7 @@ export default function ConceptBreakdown({
         calculateStats(data.concepts || []);
       }
     } catch (error) {
-      console.error('Error fetching concepts:', error);
+      logger.error('Error fetching concepts:', error);
     } finally {
       setLoading(false);
     }
@@ -106,7 +107,7 @@ export default function ConceptBreakdown({
         fetchConcepts();
       }
     } catch (error) {
-      console.error('Error generating concepts:', error);
+      logger.error('Error generating concepts:', error);
     } finally {
       setGenerating(false);
     }
@@ -130,7 +131,7 @@ export default function ConceptBreakdown({
         onComplete?.(conceptId);
       }
     } catch (error) {
-      console.error('Error completing concept:', error);
+      logger.error('Error completing concept:', error);
     }
   };
 
@@ -152,7 +153,7 @@ export default function ConceptBreakdown({
         onCreateFlashcards?.(conceptId);
       }
     } catch (error) {
-      console.error('Error creating flashcards:', error);
+      logger.error('Error creating flashcards:', error);
     }
   };
 

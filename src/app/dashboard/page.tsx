@@ -19,6 +19,10 @@ import {
   TrendingUp,
   Target
 } from 'lucide-react';
+import { logger } from '@/lib/logger';
+import { DashboardSkeleton } from '@/components/DashboardSkeleton';
+import { useStreak } from '@/hooks/useStreak';
+import { useLevelProgression } from '@/hooks/useLevelProgression';
 
 interface Document {
   id: string;
@@ -33,13 +37,15 @@ interface Document {
 
 function DashboardContent() {
   const { user } = useAuth();
-  const [documents, setDocuments] = useState<Document[]>([]);
+  const { currentStreak, updateStreak } = useStreak();
+  const { currentLevel, progressToNext, totalXP, currentLevelInfo } = useLevelProgression();
   const [stats, setStats] = useState({
     totalQuizzesTaken: 0,
     totalChatSessions: 0,
     learningTopics: 0,
-    streak: 0,
   });
+  const [documents, setDocuments] = useState<Document[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
 
   const fetchUserStats = useCallback(async () => {
     try {
@@ -66,10 +72,9 @@ function DashboardContent() {
         totalQuizzesTaken: quizCount || userData?.total_quizzes_taken || 0,
         totalChatSessions: chatCount || userData?.total_chat_sessions || 0,
         learningTopics: (userData?.learning_topics || []).length,
-        streak: userData?.streak_count || 0,
       });
     } catch (error) {
-      console.error('Error fetching user stats:', error);
+      logger.error('Error fetching user stats:', error);
     }
   }, [user]);
 
@@ -79,19 +84,25 @@ function DashboardContent() {
       const data = await response.json();
       setDocuments(data.documents || []);
     } catch (error) {
-      console.error('Error fetching documents:', error);
+      logger.error('Error fetching documents:', error);
     }
   }, []);
 
   useEffect(() => {
     const loadDashboard = async () => {
+      setIsLoading(true);
       await fetchDocuments();
       if (user?.id) {
         await fetchUserStats();
       }
+      setIsLoading(false);
     };
     loadDashboard();
   }, [fetchDocuments, fetchUserStats, user?.id]);
+
+  if (isLoading) {
+    return <DashboardSkeleton />;
+  }
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 via-indigo-50 to-purple-50">
@@ -105,7 +116,7 @@ function DashboardContent() {
 
       <div className="max-w-7xl mx-auto p-8">
         {/* Stats Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-6 mb-8 stagger-children" style={{ '--stagger-delay': '100ms' } as React.CSSProperties}>
           <div className="bg-white rounded-2xl shadow-sm border border-slate-200 p-6 hover:shadow-md transition-all duration-200">
             <div className="p-3 bg-blue-100 rounded-xl w-fit mb-4">
               <FileText className="w-6 h-6 text-blue-600" />
@@ -135,7 +146,26 @@ function DashboardContent() {
               <Flame className="w-6 h-6 text-orange-600" />
             </div>
             <h3 className="text-slate-500 text-sm font-semibold mb-1">Chuỗi học tập</h3>
-            <p className="text-3xl font-bold text-slate-800">{stats.streak}</p>
+            <p className="text-3xl font-bold text-slate-800">{currentStreak}</p>
+          </div>
+
+          <div className="bg-white rounded-2xl shadow-sm border border-slate-200 p-6 hover:shadow-md transition-all duration-200">
+            <div className="p-3 bg-yellow-100 rounded-xl w-fit mb-4">
+              <TrendingUp className="w-6 h-6 text-yellow-600" />
+            </div>
+            <h3 className="text-slate-500 text-sm font-semibold mb-1">Level</h3>
+            <div className="space-y-2">
+              <p className="text-2xl font-bold text-slate-800">
+                {currentLevelInfo?.icon} {currentLevel}
+              </p>
+              <div className="w-full bg-slate-200 rounded-full h-2">
+                <div 
+                  className="bg-gradient-to-r from-yellow-400 to-yellow-600 h-2 rounded-full transition-all duration-500"
+                  style={{ width: `${progressToNext}%` }}
+                />
+              </div>
+              <p className="text-xs text-slate-500">{totalXP} XP</p>
+            </div>
           </div>
         </div>
 
