@@ -79,10 +79,10 @@ export function Navbar() {
               {/* Desktop Navigation - Logged In */}
               <div className="hidden lg:flex items-center space-x-1">
                 {/* Learning Dropdown */}
-                <div className="relative">
+                <div className="relative"
+                     onMouseEnter={() => setShowLearningDropdown(true)}
+                     onMouseLeave={() => setShowLearningDropdown(false)}>
                   <button
-                    onMouseEnter={() => setShowLearningDropdown(true)}
-                    onMouseLeave={() => setShowLearningDropdown(false)}
                     className="px-3 py-2 text-slate-600 hover:text-indigo-600 hover:bg-indigo-50 rounded-lg transition font-medium flex items-center gap-2"
                   >
                     <BookOpen className="w-4 h-4" />
@@ -110,10 +110,10 @@ export function Navbar() {
                 </div>
 
                 {/* Analytics Dropdown */}
-                <div className="relative">
+                <div className="relative"
+                     onMouseEnter={() => setShowAnalyticsDropdown(true)}
+                     onMouseLeave={() => setShowAnalyticsDropdown(false)}>
                   <button
-                    onMouseEnter={() => setShowAnalyticsDropdown(true)}
-                    onMouseLeave={() => setShowAnalyticsDropdown(false)}
                     className="px-3 py-2 text-slate-600 hover:text-indigo-600 hover:bg-indigo-50 rounded-lg transition font-medium flex items-center gap-2"
                   >
                     <BarChart3 className="w-4 h-4" />
