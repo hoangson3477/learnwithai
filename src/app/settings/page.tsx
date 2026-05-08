@@ -15,7 +15,7 @@ import {
   X
 } from 'lucide-react';
 
-export default function SettingsPage() {
+function SettingsPage() {
   const { 
     settings, 
     isEnabled, 
@@ -280,10 +280,12 @@ export default function SettingsPage() {
   );
 }
 
-export default function SettingsPageWrapper() {
+function SettingsPageWrapper() {
   return (
     <ProtectedPageWrapper>
       <SettingsPage />
     </ProtectedPageWrapper>
   );
 }
+
+export default SettingsPageWrapper;
