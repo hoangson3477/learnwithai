@@ -106,9 +106,9 @@ function AdminContent() {
         .eq('event_type', 'study_session')
         .gte('created_at', new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString());
 
-      const avgStudyTime = studyEvents?.reduce((sum, event) => {
+      const avgStudyTime = (studyEvents || []).reduce((sum, event) => {
         return sum + (event.metadata?.duration || 0);
-      }, 0) / (studyEvents?.length || 1);
+      }, 0) / ((studyEvents || []).length || 1);
 
       const weekAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
       const { count: usersWeekAgo } = await supabase
@@ -116,7 +116,7 @@ function AdminContent() {
         .select('*', { count: 'exact', head: true })
         .lte('created_at', weekAgo.toISOString());
 
-      const weeklyGrowth = ((totalUsers - (usersWeekAgo || 0)) / (usersWeekAgo || 1)) * 100;
+      const weeklyGrowth = (((totalUsers || 0) - (usersWeekAgo || 0)) / (usersWeekAgo || 1)) * 100;
 
       setStats({
         totalUsers: totalUsers || 0,
